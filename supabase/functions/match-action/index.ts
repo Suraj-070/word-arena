@@ -1,18 +1,14 @@
-/**
- * Not deployed. Deploying this function needs explicit approval.
- *
- * The request handler that will sit behind this entry point is
- * `handleMatchRequest` in `@word-arena/online`. Vitest runs that handler.
- * This process stays closed so an unapproved deploy cannot serve an
- * in-memory match or a secret key.
- */
-Deno.serve(() =>
-  new Response(
-    JSON.stringify({
-      ok: false,
-      code: 'unavailable',
-      message: 'The match service is not deployed. Scored plays stay unavailable until an approved dictionary and this function are approved.',
-    }),
-    { status: 503, headers: { 'content-type': 'application/json; charset=utf-8' } },
-  ),
-);
+import { createEdgeHandler, type EdgeEnv } from '../../../packages/online/src/edge.ts';
+import { fromPostgresJs } from '../../../packages/online/src/sql.ts';
+
+const databaseUrl = Deno.env.get('SUPABASE_DB_URL') ?? '';
+const database = databaseUrl
+  ? fromPostgresJs((await import('npm:postgres')).default(databaseUrl, { prepare: false, max: 1 }))
+  : null;
+
+const env: EdgeEnv = {
+  supabaseUrl: Deno.env.get('SUPABASE_URL') ?? '',
+  publishableKey: Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+};
+
+Deno.serve(createEdgeHandler(env, database));

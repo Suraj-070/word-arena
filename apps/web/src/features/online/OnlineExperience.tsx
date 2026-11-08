@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { followMatch } from '@word-arena/online/client';
 import { readCell, type Letter } from '@word-arena/engine';
+import { BlankLetterDialog } from '../board/BlankLetterDialog';
 import { Board, type BoardFace } from '../board/Board';
 import { BoardScroll } from '../board/BoardScroll';
 import { Rack, type RackTile } from '../board/Rack';
@@ -292,6 +293,7 @@ export function OnlineTable({
   const [current, setCurrent] = useState(match);
   const [selected, setSelected] = useState<string[]>([]);
   const [draft, setDraft] = useState<{ tileId: string; row: number; col: number; assignedLetter?: Letter }[]>([]);
+  const [pending, setPending] = useState<{ tileId: string; row: number; col: number } | null>(null);
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -305,6 +307,7 @@ export function OnlineTable({
       onSnapshot(snapshot) {
         setCurrent(snapshot);
         setDraft([]);
+        setPending(null);
       },
     });
     return () => follow.stop();
@@ -354,6 +357,7 @@ export function OnlineTable({
   const finished = current.status === 'finished';
 
   function place(row: number, col: number) {
+    if (pending) return;
     const existing = draft.find((placement) => placement.row === row && placement.col === col);
     if (existing) {
       setDraft(draft.filter((placement) => placement !== existing));
@@ -368,12 +372,19 @@ export function OnlineTable({
     const tile = current.rack.find((candidate) => candidate.id === tileId);
     if (!tile) return;
     if (tile.letter === null) {
-      const assigned = window.prompt('Choose a letter for the blank. It still scores 0.');
-      if (!assigned || !/^[A-Za-z]$/.test(assigned)) return;
-      setDraft([...draft, { tileId, row, col, assignedLetter: assigned.toUpperCase() as Letter }]);
-    } else {
-      setDraft([...draft, { tileId, row, col }]);
+      setPending({ tileId, row, col });
+      setNotice('Choose a letter for the blank. It still scores 0.');
+      return;
     }
+    setDraft([...draft, { tileId, row, col }]);
+    setSelected([]);
+    setNotice('');
+  }
+
+  function chooseBlank(letter: Letter) {
+    if (!pending) return;
+    setDraft([...draft, { ...pending, assignedLetter: letter }]);
+    setPending(null);
     setSelected([]);
     setNotice('');
   }
@@ -420,8 +431,8 @@ export function OnlineTable({
           <button type="button" className="match-action" data-primary="true" disabled={finished || draft.length === 0 || !current.dictionaryAvailable} onClick={() => void send({ type: 'play', placements: draft })}>
             Submit
           </button>
-          <button type="button" className="match-action" disabled={draft.length === 0} onClick={() => setDraft(draft.slice(0, -1))}>Undo</button>
-          <button type="button" className="match-action" disabled={draft.length === 0} onClick={() => setDraft([])}>Clear</button>
+          <button type="button" className="match-action" disabled={draft.length === 0 && !pending} onClick={() => { setDraft(draft.slice(0, -1)); setPending(null); }}>Undo</button>
+          <button type="button" className="match-action" disabled={draft.length === 0 && !pending} onClick={() => { setDraft([]); setPending(null); }}>Clear</button>
           <button type="button" className="match-action" disabled={finished || draft.length > 0 || current.turn !== current.yourSeat} onClick={() => void send({ type: 'pass' })}>Pass</button>
           <button
             type="button"
@@ -440,6 +451,7 @@ export function OnlineTable({
         tiles={rackTiles}
         onSelect={(id) => setSelected(selected.includes(id) ? selected.filter((item) => item !== id) : [...selected, id])}
       />
+      {pending ? <BlankLetterDialog onChoose={chooseBlank} onCancel={() => { setPending(null); setNotice(''); }} /> : null}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
-import { isLetter, LETTERS, readCell, type BonusClass, type DictionaryProvider, type PlayResult } from '@word-arena/engine';
+import { readCell, type BonusClass, type DictionaryProvider, type PlayResult } from '@word-arena/engine';
+import { BlankLetterDialog } from '../board/BlankLetterDialog';
 import { Board, type BoardFace } from '../board/Board';
 import { BoardScroll } from '../board/BoardScroll';
 import { Rack, type RackTile } from '../board/Rack';
@@ -217,28 +218,7 @@ export function Table() {
         onDragMove={onDragMove}
         onDragEnd={onDragEnd}
       />
-      {pendingBlank ? (
-        <div className="blank-dialog" role="dialog" aria-modal="true" aria-label="Choose a letter for the blank">
-          <p>Choose a letter. The blank still scores 0.</p>
-          <div className="blank-letters">
-            {LETTERS.split('').map((letter) => (
-              <button
-                key={letter}
-                type="button"
-                className="match-action"
-                onClick={() => {
-                  if (isLetter(letter)) assignBlank(letter);
-                }}
-              >
-                {letter}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="match-action" onClick={cancelBlank}>
-            Cancel
-          </button>
-        </div>
-      ) : null}
+      {pendingBlank ? <BlankLetterDialog onChoose={assignBlank} onCancel={cancelBlank} /> : null}
       {ghost && ghostTile ? (
         <div className="tile-ghost" style={{ left: ghost.x, top: ghost.y }} aria-hidden="true">
           <Tile letter={ghostTile.letter.trim() === '' ? ' ' : ghostTile.letter} points={ghostTile.points} />
