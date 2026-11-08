@@ -1,6 +1,6 @@
 # Word Arena
 
-Phase 1 is the UI foundation. Phase 2 is `@word-arena/engine`. The web app plays a local two-player match with that engine. No dictionary is configured, so a move cannot be submitted and words are not treated as validated. There is no account system.
+Phase 1 is the UI foundation. Phase 2 is `@word-arena/engine`. Phase 3 plays a local two-player match. Phase 4 adds private online rooms. No dictionary is configured, so a scored move cannot be submitted. The browser uses only a Supabase publishable key, and no remote database migration has been applied.
 
 ## Scripts
 
