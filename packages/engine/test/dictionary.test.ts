@@ -24,6 +24,15 @@ describe('play-word normalisation', () => {
     expect(dictionary.contains('\u212AAT')).toBe(false);
   });
 
+  it('rejects a line break or tab after an otherwise valid word', () => {
+    const rejected = ['CAT\n', 'CAT\r', 'CAT\t', 'CAT\u2028', 'CAT\u2029'] as const;
+    for (const input of rejected) {
+      const result = normalisePlayWord(input);
+      expect(result.ok, JSON.stringify(input)).toBe(false);
+      if (!result.ok) expect(result.code, JSON.stringify(input)).toBe('character');
+    }
+  });
+
   it('rejects empty input, marks, punctuation, digits, and the wrong length', () => {
     const cases = [
       ['', 'empty'],

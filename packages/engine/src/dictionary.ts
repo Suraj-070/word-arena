@@ -38,7 +38,19 @@ export type NormaliseResult =
   | { readonly ok: true; readonly word: string }
   | { readonly ok: false; readonly code: 'empty' | 'character' | 'too-short' | 'too-long' };
 
-const ASCII_LETTERS = /^[A-Za-z]+$/;
+/**
+ * Every code unit must be ASCII A–Z or a–z.
+ * A `$` anchor is not used: in JavaScript it can match before a final line terminator.
+ */
+function isEntirelyAsciiLetters(input: string): boolean {
+  for (let index = 0; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+    const upper = code >= 65 && code <= 90;
+    const lower = code >= 97 && code <= 122;
+    if (!upper && !lower) return false;
+  }
+  return true;
+}
 
 /**
  * Accepts ASCII A–Z in either case.
@@ -47,7 +59,7 @@ const ASCII_LETTERS = /^[A-Za-z]+$/;
  */
 export function normalisePlayWord(input: string): NormaliseResult {
   if (input.length === 0) return { ok: false, code: 'empty' };
-  if (!ASCII_LETTERS.test(input)) return { ok: false, code: 'character' };
+  if (!isEntirelyAsciiLetters(input)) return { ok: false, code: 'character' };
   if (input.length < 2) return { ok: false, code: 'too-short' };
   if (input.length > 31) return { ok: false, code: 'too-long' };
   return { ok: true, word: input.toLowerCase() };
