@@ -1,6 +1,6 @@
 # Word Arena
 
-Phase 1 is the UI foundation: design tokens, an app shell, and an empty board and rack. Phase 2 adds `@word-arena/engine`, a pure rules package. The app does not import it yet. There is no match flow or account system yet.
+Phase 1 is the UI foundation. Phase 2 is `@word-arena/engine`. The web app plays a local two-player match with that engine. No dictionary is configured, so a move cannot be submitted and words are not treated as validated. There is no account system.
 
 ## Scripts
 

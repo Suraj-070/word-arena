@@ -16,6 +16,7 @@ export {
   normalisePlayWord,
 } from './dictionary';
 export { LETTERS, isLetter } from './letters';
+export { applyMatchAction, arrangeRack, createMatch, createTileBag, dealMatch, renamePlayer, shuffleTiles } from './match';
 export { validatePlay } from './placement';
 export { arenaStandardDefinition, arenaStandardRules } from './presets';
 export { pointsFor, tileTotal, validateRules } from './rules';
@@ -32,10 +33,17 @@ export type {
   FormedLetter,
   FormedWord,
   Letter,
+  MatchEnd,
+  MatchError,
+  MatchErrorCode,
+  MatchLast,
+  MatchState,
   PlayError,
   PlayErrorCode,
   PlayInput,
   PlayResult,
+  PlayerState,
+  RandomSource,
   ResolvedPlacement,
   Rules,
   RulesError,
@@ -43,6 +51,7 @@ export type {
   RulesResult,
   ScoreBreakdown,
   ScoredLetter,
+  Seat,
   ScoredWord,
   ScoringRules,
   TileDefinition,

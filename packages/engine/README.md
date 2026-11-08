@@ -12,6 +12,7 @@ Import from `@word-arena/engine`.
 - `createBoard`, `readCell`, `inBounds`, `occupiedCells`, `isBoardEmpty`, `applyPlay` — board.
 - `centerCoordinate`, `coversCenter`, `NAMED_BOARD_SIZES` — coordinates.
 - `validatePlay` — placement, dictionary check, and score.
+- `createMatch`, `dealMatch`, `applyMatchAction` — a two-player match. Shuffle is an argument. The package does not call `Math.random`.
 - `scoreFormedWords`, `bingoAward`, `bonusAt` — scoring without a move.
 - `normalisePlayWord`, `createMemoryDictionary`, `DICTIONARY_PRESETS` — dictionary boundary.
 
@@ -55,4 +56,4 @@ pnpm --filter @word-arena/engine typecheck
 
 ## Not implemented
 
-Turns, exchange, pass, resign, match end, bag order, and drawing. Those fields exist on the rules object so a later phase can run them without a second configuration shape. There is no real dictionary artifact and no network lookup.
+There is no real dictionary artifact and no network lookup. A play is rejected when the caller does not pass a dictionary. Pass ends the match after `passRoundLimit` full rounds of consecutive passes. Exchange shuffles returned tiles with the caller’s random function.

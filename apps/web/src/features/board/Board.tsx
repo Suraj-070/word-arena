@@ -2,8 +2,19 @@ import { useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent } from 'react';
 import { Square } from '../../components/ui/Square';
 
+export type BoardFace = {
+  letter: string;
+  points: number;
+  draft: boolean;
+};
+
 type BoardProps = {
   boardSize: number;
+  faces?: ReadonlyMap<string, BoardFace>;
+  bonuses?: ReadonlyMap<string, string>;
+  onUse?: (row: number, col: number) => void;
+  onRecall?: (row: number, col: number) => void;
+  label?: string;
 };
 
 type BoardStyle = CSSProperties & {
@@ -14,7 +25,7 @@ function cellKey(row: number, col: number): string {
   return `${row}-${col}`;
 }
 
-export function Board({ boardSize }: BoardProps) {
+export function Board({ boardSize, faces, bonuses, onUse, onRecall, label = 'Board' }: BoardProps) {
   if (!Number.isInteger(boardSize) || boardSize < 1) {
     throw new Error(`Board frame needs a positive whole edge. Received ${boardSize}.`);
   }
@@ -41,6 +52,12 @@ export function Board({ boardSize }: BoardProps) {
 
     let nextRow = row;
     let nextCol = col;
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      onRecall?.(row, col);
+      return;
+    }
+
     switch (event.key) {
       case 'ArrowRight':
         nextCol = col + 1;
@@ -82,7 +99,7 @@ export function Board({ boardSize }: BoardProps) {
     <div
       className="board bg-grout"
       role="grid"
-      aria-label="Empty board"
+      aria-label={label}
       aria-rowcount={boardSize}
       aria-colcount={boardSize}
       style={style}
@@ -100,6 +117,9 @@ export function Board({ boardSize }: BoardProps) {
                 tabIndex={activeKey === key ? 0 : -1}
                 buttonRef={remember(key)}
                 onFocus={() => setActiveKey(key)}
+                onPress={() => onUse?.(row, col)}
+                face={faces?.get(key)}
+                bonus={bonuses?.get(key)}
               />
             );
           })}

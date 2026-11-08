@@ -1,11 +1,7 @@
 import { useLayoutEffect, useState } from 'react';
-import type { CSSProperties } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { Board } from '../features/board/Board';
-import { BoardScroll } from '../features/board/BoardScroll';
-import { Rack } from '../features/board/Rack';
-import { sampleBoardFrame } from '../features/board/sample-frame';
+import { Table } from '../features/match/Table';
 import { useThemeStore } from '../stores/theme';
 import { useReducedMotionAttribute } from './use-reduced-motion';
 
@@ -54,20 +50,8 @@ export function App() {
         </div>
       </header>
       <main id="board" className="table bg-felt" tabIndex={-1} aria-label="Board">
-        <h2 className="sr-only">Empty table</h2>
-        <div
-          className="board-frame"
-          style={
-            { '--board-size': String(sampleBoardFrame.boardSize) } as CSSProperties
-          }
-        >
-          <BoardScroll>
-            <div className="board-center">
-              <Board boardSize={sampleBoardFrame.boardSize} />
-            </div>
-          </BoardScroll>
-          <Rack slotCount={sampleBoardFrame.rackSize} />
-        </div>
+        <h2 className="sr-only">Local match</h2>
+        <Table />
       </main>
       <p className="sr-only" aria-live="polite">
         {announcement}

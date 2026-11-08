@@ -245,6 +245,26 @@ test('reduced motion is respected', async ({ page }) => {
   expect(hintMotion.milliseconds).toBeLessThan(1);
 });
 
+test('a local match can place a tile and cannot submit without a dictionary', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openApp(page);
+
+  await expect(page.getByText(/No dictionary is configured/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Submit' })).toBeDisabled();
+  await expect(page.locator('.match-status')).toContainText('Player 1 to move');
+
+  const tile = page.locator('.rack [data-tile][data-occupied="true"]').first();
+  await tile.click();
+  await expect(tile).toHaveAttribute('data-selected', 'true');
+  await page.getByRole('gridcell', { name: 'Empty square, row 8, column 8' }).click();
+  await expect(page.getByRole('gridcell', { name: /row 8, column 8, not submitted/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Clear' }).click();
+  await expect(page.getByRole('gridcell', { name: 'Empty square, row 8, column 8' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Pass' }).click();
+  await expect(page.locator('.match-status')).toContainText('Player 2 to move');
+});
+
 test('motion tokens are used when motion is allowed', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await openApp(page);
