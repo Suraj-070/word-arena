@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { sampleBoardFrame } from '../features/board/sample-frame';
+import { arenaStandardRules } from '@word-arena/engine';
+import { resetTable } from '../features/match/table-store';
 import { THEME_STORAGE_KEY, useThemeStore } from '../stores/theme';
 import { App } from './App';
 
@@ -11,6 +12,7 @@ describe('App shell', () => {
     document.documentElement.dataset.theme = 'light';
     document.documentElement.dataset.reducedMotion = 'false';
     useThemeStore.setState({ theme: 'light' });
+    resetTable();
   });
 
   it('switches the theme and stores the choice', async () => {
@@ -26,16 +28,16 @@ describe('App shell', () => {
     expect(screen.getByText('Dark theme')).toBeInTheDocument();
   });
 
-  it('builds the empty table from the sample frame', () => {
+  it('builds a match from the Arena Standard rules', () => {
     render(<App />);
+    const rules = arenaStandardRules();
 
-    expect(screen.getByRole('grid', { name: 'Empty board' })).toHaveAttribute(
-      'aria-colcount',
-      String(sampleBoardFrame.boardSize),
-    );
-    expect(screen.getAllByRole('gridcell')).toHaveLength(sampleBoardFrame.boardSize ** 2);
-    expect(screen.getByRole('group', { name: `Empty rack, ${sampleBoardFrame.rackSize} spaces` })).toBeInTheDocument();
+    expect(screen.getByRole('grid', { name: 'Board' })).toHaveAttribute('aria-colcount', String(rules.boardSize));
+    expect(screen.getAllByRole('gridcell')).toHaveLength(rules.boardSize ** 2);
+    expect(screen.getByRole('group', { name: /Player 1 rack, 7 tiles/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Board' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByText(/No dictionary is configured/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
     expect(screen.queryByText(/L2|L3|W2|W3/)).not.toBeInTheDocument();
   });
 

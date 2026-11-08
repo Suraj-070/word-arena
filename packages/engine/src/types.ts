@@ -49,8 +49,8 @@ export type ScoringRules = {
 
 /**
  * Validated rules. Build one with `validateRules` or `arenaStandardRules`.
- * `passRoundLimit` and `exchangeAllowed` are stored for a later phase.
- * This phase does not run turns, exchange, pass, or match end.
+ * `passRoundLimit` is the number of full rounds of consecutive passes that end a match.
+ * With two seats, the match ends when consecutive passes reach `passRoundLimit * 2`.
  */
 export type Rules = {
   readonly rulesetId: string;
@@ -226,4 +226,61 @@ export type PlayInput = {
   readonly rack: readonly TileInstance[];
   readonly placements: readonly TilePlacement[];
   readonly dictionary: DictionaryProvider;
+};
+
+/** Inclusive of 0 and exclusive of 1. Callers supply this. The engine does not call `Math.random`. */
+export type RandomSource = () => number;
+
+export type Seat = 0 | 1;
+
+export type PlayerState = {
+  readonly name: string;
+  readonly rack: readonly TileInstance[];
+  readonly score: number;
+};
+
+export type MatchEnd =
+  | { readonly kind: 'going-out'; readonly seat: Seat }
+  | { readonly kind: 'passes' }
+  | { readonly kind: 'resign'; readonly resigned: Seat; readonly winner: Seat };
+
+export type MatchLast = {
+  readonly kind: 'play' | 'pass' | 'exchange' | 'resign';
+  readonly seat: Seat;
+  readonly score: ScoreBreakdown | null;
+};
+
+export type MatchState = {
+  readonly rules: Rules;
+  readonly players: readonly [PlayerState, PlayerState];
+  readonly bag: readonly TileInstance[];
+  readonly board: Board;
+  readonly turn: Seat;
+  readonly consecutivePasses: number;
+  readonly status: 'playing' | 'finished';
+  readonly end: MatchEnd | null;
+  readonly version: number;
+  readonly last: MatchLast | null;
+};
+
+export type MatchErrorCode =
+  | PlayErrorCode
+  | 'match-finished'
+  | 'wrong-seat'
+  | 'dictionary-unavailable'
+  | 'exchange-disabled'
+  | 'exchange-empty'
+  | 'exchange-bag'
+  | 'exchange-tile'
+  | 'random-rejected'
+  | 'rack-order'
+  | 'name';
+
+export type MatchError = {
+  readonly code: MatchErrorCode;
+  readonly message: string;
+  readonly row?: number;
+  readonly col?: number;
+  readonly tileId?: string;
+  readonly word?: string;
 };

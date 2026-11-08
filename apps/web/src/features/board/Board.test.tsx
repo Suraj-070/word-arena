@@ -11,7 +11,7 @@ describe('Board', () => {
   it('renders a grid from the supplied edge length', () => {
     render(<Board boardSize={9} />);
 
-    expect(screen.getByRole('grid', { name: 'Empty board' })).toHaveAttribute('aria-colcount', '9');
+    expect(screen.getByRole('grid', { name: 'Board' })).toHaveAttribute('aria-colcount', '9');
     expect(cells()).toHaveLength(81);
     expect(screen.queryByText(/L2|L3|W2|W3/)).not.toBeInTheDocument();
   });
