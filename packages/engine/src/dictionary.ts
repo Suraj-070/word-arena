@@ -38,16 +38,19 @@ export type NormaliseResult =
   | { readonly ok: true; readonly word: string }
   | { readonly ok: false; readonly code: 'empty' | 'character' | 'too-short' | 'too-long' };
 
-const PLAY_WORD = /^[a-z]+$/;
+const ASCII_LETTERS = /^[A-Za-z]+$/;
 
-/** Accepts A–Z in either case. Rejects spaces, marks, punctuation, and digits. */
+/**
+ * Accepts ASCII A–Z in either case.
+ * The original text is checked before lowercasing, so a non-ASCII letter that
+ * would lowercase into a–z is rejected. No accents are stripped.
+ */
 export function normalisePlayWord(input: string): NormaliseResult {
   if (input.length === 0) return { ok: false, code: 'empty' };
-  const word = input.toLowerCase();
-  if (!PLAY_WORD.test(word)) return { ok: false, code: 'character' };
-  if (word.length < 2) return { ok: false, code: 'too-short' };
-  if (word.length > 31) return { ok: false, code: 'too-long' };
-  return { ok: true, word };
+  if (!ASCII_LETTERS.test(input)) return { ok: false, code: 'character' };
+  if (input.length < 2) return { ok: false, code: 'too-short' };
+  if (input.length > 31) return { ok: false, code: 'too-long' };
+  return { ok: true, word: input.toLowerCase() };
 }
 
 /** In-memory fixture. This is not a licensed lexicon. */

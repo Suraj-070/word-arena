@@ -8,6 +8,22 @@ describe('play-word normalisation', () => {
     expect(normalisePlayWord('a'.repeat(31)).ok).toBe(true);
   });
 
+  it('accepts cat and rejects letters that only look like A–Z', () => {
+    expect(normalisePlayWord('cat')).toEqual({ ok: true, word: 'cat' });
+    expect(normalisePlayWord('CAT')).toEqual({ ok: true, word: 'cat' });
+
+    const rejected = ['\u212AAT', 'café', 'ÉAT', 'AT ', 'A T', "don't", 'A1', '12'] as const;
+    for (const input of rejected) {
+      const result = normalisePlayWord(input);
+      expect(result.ok, input).toBe(false);
+      if (!result.ok) expect(result.code, input).toBe('character');
+    }
+
+    const dictionary = createMemoryDictionary('fixture', ['CAT']);
+    expect(dictionary.contains('cat')).toBe(true);
+    expect(dictionary.contains('\u212AAT')).toBe(false);
+  });
+
   it('rejects empty input, marks, punctuation, digits, and the wrong length', () => {
     const cases = [
       ['', 'empty'],
