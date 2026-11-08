@@ -1,4 +1,4 @@
-import { motion, useReducedMotion } from 'motion/react';
+import { m, useReducedMotion } from 'motion/react';
 
 export type TileProps = {
   letter?: string;
@@ -35,15 +35,15 @@ export function Tile({ letter, points, interactive = false }: TileProps) {
       ? 'Empty tile'
       : `${letter}, ${points ?? 0} ${points === 1 ? 'point' : 'points'}`;
     return (
-      <motion.button type="button" {...motionProps} aria-label={name}>
+      <m.button type="button" {...motionProps} aria-label={name}>
         {faceContent}
-      </motion.button>
+      </m.button>
     );
   }
 
   return (
-    <motion.div {...motionProps} aria-hidden={empty ? true : undefined}>
+    <m.div {...motionProps} aria-hidden={empty ? true : undefined}>
       {faceContent}
-    </motion.div>
+    </m.div>
   );
 }

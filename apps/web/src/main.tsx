@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MotionConfig } from 'motion/react';
+import { LazyMotion, MotionConfig, domAnimation } from 'motion/react';
 import { App } from './app/App';
 import '@fontsource/fraunces/latin-600.css';
 import '@fontsource/source-sans-3/latin-400.css';
@@ -17,7 +17,9 @@ if (!root) {
 createRoot(root).render(
   <StrictMode>
     <MotionConfig reducedMotion="user">
-      <App />
+      <LazyMotion features={domAnimation} strict>
+        <App />
+      </LazyMotion>
     </MotionConfig>
   </StrictMode>,
 );

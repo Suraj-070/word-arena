@@ -22,6 +22,15 @@
   box-sizing: border-box;
 }
 
+.board-scroll-wrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
 .board-scroll {
   display: flex;
   flex: 1;
@@ -33,6 +42,29 @@
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--wa-grout) transparent;
+}
+
+.board-scroll-hint {
+  position: absolute;
+  right: 0;
+  bottom: -8px;
+  left: 0;
+  height: 4px;
+  border-radius: var(--wa-radius-tile);
+  background: color-mix(in srgb, var(--wa-tile) 28%, transparent);
+  pointer-events: none;
+}
+
+.board-scroll-hint[hidden] {
+  display: none;
+}
+
+.board-scroll-thumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: var(--wa-tile);
 }
 
 .board-scroll::-webkit-scrollbar {
@@ -167,7 +199,8 @@
     justify-content: center;
   }
 
-  .board-scroll {
+  .board-scroll,
+  .board-scroll-wrap {
     flex: 0 1 auto;
   }
 }

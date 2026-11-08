@@ -18,7 +18,8 @@
   --wa-square-alt: #31443b;
   --wa-tile: #f7f1e4;
   --wa-tile-ink: #1a1f1c;
-  --wa-point: #8a8175;
+  /* Same warm hue as the Phase 0 point, darkened so small text clears 4.5:1 on both tile faces. */
+  --wa-point: #655e55;
   --wa-accent: #2f6f62;
   --wa-danger: #8c3a32;
   --wa-bonus-l2: #a15c45;

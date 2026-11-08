@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { contrastRatio, luminance } from '../apps/web/src/styles/contrast';
 
 const viewports = [
   { width: 1440, height: 900 },
@@ -98,14 +99,130 @@ test('desktop and mobile layouts have no horizontal overflow', async ({ page }) 
     expect(square.width).toBeGreaterThanOrEqual(31);
 
     const boardScroll = await page.locator('.board-scroll').evaluate((element) => element.scrollWidth - element.clientWidth);
+    const hint = page.locator('.board-scroll-hint');
     if (viewport.width <= 375) {
       expect(boardScroll, `${viewport.width}px board scroll`).toBeGreaterThan(20);
       expect(square.width).toBeLessThanOrEqual(36);
+      await expect(hint, `${viewport.width}px scroll hint`).toBeVisible();
+      await expect(hint).toHaveAttribute('data-at-start', 'true');
+      await expect(hint).toHaveAttribute('data-at-end', 'false');
     } else {
       expect(boardScroll, `${viewport.width}px board scroll`).toBeLessThanOrEqual(2);
+      await expect(hint, `${viewport.width}px scroll hint`).toBeHidden();
     }
   }
 });
+
+test('point text clears 4.5:1 on the tile in both themes', async ({ page }) => {
+  await openApp(page);
+
+  const light = await pointContrast(page);
+  expect(light.ratio, `light ${light.ratio.toFixed(3)} ${light.color} on ${light.background}`).toBeGreaterThanOrEqual(4.5);
+  expect(light.pointLuminance).toBeGreaterThan(light.inkLuminance);
+  expect(light.ratio).toBeLessThan(light.letterRatio);
+
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+  const dark = await pointContrast(page);
+  expect(dark.ratio, `dark ${dark.ratio.toFixed(3)} ${dark.color} on ${dark.background}`).toBeGreaterThanOrEqual(4.5);
+  expect(dark.pointLuminance).toBeGreaterThan(dark.inkLuminance);
+  expect(dark.ratio).toBeLessThan(dark.letterRatio);
+});
+
+test('the scroll hint tracks horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openApp(page);
+
+  const hint = page.locator('.board-scroll-hint');
+  const thumb = page.locator('.board-scroll-thumb');
+  const scroller = page.locator('.board-scroll');
+  await expect(hint).toBeVisible();
+  await expect(hint).toHaveAttribute('data-at-start', 'true');
+  await expect(hint).toHaveAttribute('data-at-end', 'false');
+
+  const start = await thumb.boundingBox();
+  expect(start).not.toBeNull();
+  await scroller.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth - element.clientWidth;
+  });
+  await expect(hint).toHaveAttribute('data-at-end', 'true');
+  await expect(hint).toHaveAttribute('data-at-start', 'false');
+  const end = await thumb.boundingBox();
+  expect(end).not.toBeNull();
+  if (!start || !end) throw new Error('missing thumb');
+  expect(end.x).toBeGreaterThan(start.x + 8);
+
+  await scroller.evaluate((element) => {
+    element.scrollLeft = (element.scrollWidth - element.clientWidth) / 2;
+  });
+  await expect(hint).toHaveAttribute('data-at-start', 'false');
+  await expect(hint).toHaveAttribute('data-at-end', 'false');
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(hint).toBeHidden();
+  const wideOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(wideOverflow).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({ width: 320, height: 568 });
+  await expect(hint).toBeVisible();
+  await expect(hint).toHaveAttribute('data-scroll-hint', 'visible');
+  const narrowOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(narrowOverflow).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await expect(hint).toBeHidden();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(hint).toBeHidden();
+});
+
+test('keyboard focus stays visible beside the scroll hint', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await openApp(page);
+
+  for (let step = 0; step < 8; step += 1) {
+    await page.keyboard.press('Tab');
+    const role = await page.evaluate(() => document.activeElement?.getAttribute('role'));
+    if (role === 'gridcell') break;
+  }
+
+  const square = page.locator(':focus');
+  await expect(square).toHaveAttribute('aria-label', 'Empty square, row 1, column 1');
+  const shadow = await square.evaluate((element) => getComputedStyle(element).boxShadow);
+  expect(shadow).toContain('inset');
+
+  const squareBox = await square.boundingBox();
+  const hintBox = await page.locator('.board-scroll-hint').boundingBox();
+  expect(squareBox).not.toBeNull();
+  expect(hintBox).not.toBeNull();
+  if (!squareBox || !hintBox) throw new Error('missing boxes');
+  const overlaps = squareBox.y < hintBox.y + hintBox.height && squareBox.y + squareBox.height > hintBox.y;
+  expect(overlaps).toBe(false);
+
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator(':focus')).toHaveAttribute('aria-colindex', '2');
+});
+
+async function pointContrast(page: Page) {
+  const colors = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.className = 'text-point bg-tile';
+    document.body.append(probe);
+    const style = getComputedStyle(probe);
+    const color = style.color;
+    const background = style.backgroundColor;
+    probe.className = 'text-tile-ink bg-tile';
+    const ink = getComputedStyle(probe).color;
+    probe.remove();
+    return { color, background, ink };
+  });
+
+  return {
+    ...colors,
+    ratio: contrastRatio(colors.color, colors.background),
+    pointLuminance: luminance(colors.color),
+    inkLuminance: luminance(colors.ink),
+    letterRatio: contrastRatio(colors.ink, colors.background),
+  };
+}
 
 test('reduced motion is respected', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -117,6 +234,15 @@ test('reduced motion is respected', async ({ page }) => {
   const duration = await page.locator('.square').first().evaluate((element) => getComputedStyle(element).transitionDuration);
   const milliseconds = duration.endsWith('ms') ? Number.parseFloat(duration) : Number.parseFloat(duration) * 1000;
   expect(milliseconds).toBeLessThan(1);
+
+  const hintMotion = await page.locator('.board-scroll-thumb').evaluate((element) => {
+    const style = getComputedStyle(element);
+    const raw = style.transitionDuration;
+    const value = raw.endsWith('ms') ? Number.parseFloat(raw) : Number.parseFloat(raw) * 1000;
+    return { animationName: style.animationName, milliseconds: value };
+  });
+  expect(hintMotion.animationName).toBe('none');
+  expect(hintMotion.milliseconds).toBeLessThan(1);
 });
 
 test('motion tokens are used when motion is allowed', async ({ page }) => {

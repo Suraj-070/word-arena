@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Board } from '../features/board/Board';
+import { BoardScroll } from '../features/board/BoardScroll';
 import { Rack } from '../features/board/Rack';
 import { sampleBoardFrame } from '../features/board/sample-frame';
 import { useThemeStore } from '../stores/theme';
@@ -60,11 +61,11 @@ export function App() {
             { '--board-size': String(sampleBoardFrame.boardSize) } as CSSProperties
           }
         >
-          <div className="board-scroll">
+          <BoardScroll>
             <div className="board-center">
               <Board boardSize={sampleBoardFrame.boardSize} />
             </div>
-          </div>
+          </BoardScroll>
           <Rack slotCount={sampleBoardFrame.rackSize} />
         </div>
       </main>
