@@ -11,9 +11,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@word-arena/engine": "workspace:*",
     "@fontsource/fraunces": "^5.3.0",
     "@fontsource/source-sans-3": "^5.3.1",
+    "@supabase/supabase-js": "^2.119.0",
+    "@word-arena/engine": "workspace:*",
+    "@word-arena/online": "workspace:*",
     "lucide-react": "^1.70.0",
     "motion": "^14.10.1",
     "react": "^19.3.1",

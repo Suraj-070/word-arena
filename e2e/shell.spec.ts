@@ -245,6 +245,28 @@ test('reduced motion is respected', async ({ page }) => {
   expect(hintMotion.milliseconds).toBeLessThan(1);
 });
 
+test('online play stays unsigned-in until a project is connected', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openApp(page);
+  await page.getByRole('link', { name: 'Online' }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  await expect(page.getByText(/not connected to a Supabase project/)).toBeVisible();
+  await page.getByLabel('Email').fill('ada@example.com');
+  await page.getByLabel('Password').fill('long-password');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('alert')).toContainText(/not connected/);
+  await expect(page.getByRole('button', { name: 'Create private room' })).toHaveCount(0);
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 375, height: 812 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${viewport.width}px`).toBeLessThanOrEqual(1);
+  }
+});
+
 test('a local match can place a tile and cannot submit without a dictionary', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openApp(page);

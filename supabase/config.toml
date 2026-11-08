@@ -1,0 +1,14 @@
+# Local project file. It does not point at a remote Supabase project.
+project_id = "word-arena-local"
+
+[api]
+enabled = true
+schemas = ["public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+major_version = 15
+
+[realtime]
+enabled = true

@@ -11,8 +11,8 @@
     "dev": "pnpm --filter @word-arena/web dev",
     "build": "pnpm --filter @word-arena/web build",
     "preview": "pnpm --filter @word-arena/web preview",
-    "typecheck": "pnpm --filter @word-arena/web --filter @word-arena/engine typecheck",
-    "test": "pnpm --filter @word-arena/web --filter @word-arena/engine test",
+    "typecheck": "pnpm --filter @word-arena/web --filter @word-arena/engine --filter @word-arena/online typecheck",
+    "test": "pnpm --filter @word-arena/web --filter @word-arena/engine --filter @word-arena/online test",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
