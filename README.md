@@ -1,6 +1,6 @@
 # Word Arena
 
-Phase 1 is the UI foundation: design tokens, an app shell, and an empty board and rack. There is no match, dictionary, or account system yet.
+Phase 1 is the UI foundation: design tokens, an app shell, and an empty board and rack. Phase 2 adds `@word-arena/engine`, a pure rules package. The app does not import it yet. There is no match flow or account system yet.
 
 ## Scripts
 
@@ -8,6 +8,7 @@ Phase 1 is the UI foundation: design tokens, an app shell, and an empty board an
 pnpm install
 pnpm dev
 pnpm test
+pnpm --filter @word-arena/engine test
 pnpm test:e2e
 pnpm typecheck
 pnpm build
