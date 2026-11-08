@@ -1,0 +1,21 @@
+{
+  "name": "word-arena",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @word-arena/web dev",
+    "build": "pnpm --filter @word-arena/web build",
+    "preview": "pnpm --filter @word-arena/web preview",
+    "typecheck": "pnpm --filter @word-arena/web typecheck",
+    "test": "pnpm --filter @word-arena/web test",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0"
+  }
+}

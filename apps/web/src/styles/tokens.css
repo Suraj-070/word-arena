@@ -1,0 +1,189 @@
+@import "tailwindcss";
+@source "..";
+
+/*
+  Raw colours live in this file only.
+  Light and dark values are the approved Phase 0 palette.
+  Derived roles (line, grout, focus, shadow) are mixes of those colours.
+  Bonus-class colours are tokens for a later, approved coordinate list.
+  No square is painted with them in this phase.
+*/
+:root {
+  color-scheme: light;
+  --wa-paper: #f3efe6;
+  --wa-ink: #1a1f1c;
+  --wa-muted: #5e675f;
+  --wa-felt: #24312c;
+  --wa-square: #2c3b34;
+  --wa-square-alt: #31443b;
+  --wa-tile: #f7f1e4;
+  --wa-tile-ink: #1a1f1c;
+  /* Same warm hue as the Phase 0 point, darkened so small text clears 4.5:1 on both tile faces. */
+  --wa-point: #655e55;
+  --wa-accent: #2f6f62;
+  --wa-danger: #8c3a32;
+  --wa-bonus-l2: #a15c45;
+  --wa-bonus-l3: #8a5a2a;
+  --wa-bonus-w2: #3d4f88;
+  --wa-bonus-w3: #2a3660;
+  --wa-shadow-ink: #1a1f1c;
+
+  --wa-font-display: "Fraunces", "Iowan Old Style", Palatino, serif;
+  --wa-font-tile: "Source Sans 3", "Segoe UI", sans-serif;
+
+  --text-display: clamp(1.25rem, 1.05rem + 0.8vw, 1.875rem);
+  --text-body: 1rem;
+  --text-small: 0.875rem;
+  --leading-display: 1.15;
+  --leading-body: 1.5;
+  --leading-small: 1.4;
+  --weight-regular: 400;
+  --weight-semibold: 600;
+
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+
+  --wa-radius-tile: 2px;
+  --wa-radius-control: 4px;
+
+  --wa-duration-lift: 120ms;
+  --wa-duration-settle: 160ms;
+  --wa-duration-reflow: 200ms;
+  --wa-duration-score: 240ms;
+  --wa-ease-settle: cubic-bezier(0.2, 0, 0, 1);
+
+  --shell-header: 64px;
+  --frame-pad-block: 12px;
+  --frame-pad-inline: 12px;
+  --rack-gap: 12px;
+  --board-gap: 3px;
+  --cell-min: 32px;
+  --cell-max: 56px;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --wa-paper: #121614;
+  --wa-ink: #f3efe6;
+  --wa-muted: #b7c0b6;
+  --wa-felt: #0e1412;
+  --wa-square: #1a2420;
+  --wa-square-alt: #22302a;
+  --wa-tile: #efe6d4;
+  --wa-accent: #3d8f7e;
+}
+
+:root {
+  --wa-line: color-mix(in srgb, var(--wa-ink) 16%, transparent);
+  --wa-grout: color-mix(in srgb, var(--wa-tile) 50%, var(--wa-felt));
+  --wa-focus: var(--wa-accent);
+  --wa-focus-on-felt: var(--wa-tile);
+  --wa-on-felt: var(--wa-tile);
+  --wa-tile-edge: color-mix(in srgb, var(--wa-tile-ink) 16%, var(--wa-tile));
+  --wa-hover-wash: color-mix(in srgb, var(--wa-ink) 7%, transparent);
+  --wa-shadow-lift: 0 3px 0 color-mix(in srgb, var(--wa-shadow-ink) 28%, transparent);
+}
+
+@theme inline {
+  --color-paper: var(--wa-paper);
+  --color-ink: var(--wa-ink);
+  --color-muted: var(--wa-muted);
+  --color-felt: var(--wa-felt);
+  --color-square: var(--wa-square);
+  --color-square-alt: var(--wa-square-alt);
+  --color-tile: var(--wa-tile);
+  --color-tile-ink: var(--wa-tile-ink);
+  --color-point: var(--wa-point);
+  --color-accent: var(--wa-accent);
+  --color-danger: var(--wa-danger);
+  --color-line: var(--wa-line);
+  --color-grout: var(--wa-grout);
+  --color-on-felt: var(--wa-on-felt);
+  --color-bonus-l2: var(--wa-bonus-l2);
+  --color-bonus-l3: var(--wa-bonus-l3);
+  --color-bonus-w2: var(--wa-bonus-w2);
+  --color-bonus-w3: var(--wa-bonus-w3);
+  --font-display: var(--wa-font-display);
+  --font-sans: var(--wa-font-tile);
+  --radius-tile: var(--wa-radius-tile);
+  --radius-control: var(--wa-radius-control);
+  --shadow-lift: var(--wa-shadow-lift);
+  --spacing-2xs: var(--space-2xs);
+  --spacing-xs: var(--space-xs);
+  --spacing-sm: var(--space-sm);
+  --spacing-md: var(--space-md);
+  --spacing-lg: var(--space-lg);
+  --spacing-xl: var(--space-xl);
+  --spacing-2xl: var(--space-2xl);
+  --text-body: var(--text-body);
+  --text-body--line-height: var(--leading-body);
+  --text-small: var(--text-small);
+  --text-small--line-height: var(--leading-small);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --shell-header: 72px;
+    --frame-pad-block: 32px;
+    --frame-pad-inline: 32px;
+    --rack-gap: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --wa-duration-lift: 0ms;
+    --wa-duration-settle: 0ms;
+    --wa-duration-reflow: 0ms;
+    --wa-duration-score: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 0;
+  background: var(--wa-paper);
+  color: var(--wa-ink);
+  font-family: var(--wa-font-tile);
+  font-size: var(--text-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-body);
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--wa-accent) 35%, var(--wa-paper));
+  color: var(--wa-ink);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

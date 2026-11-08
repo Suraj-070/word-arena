@@ -1,0 +1,206 @@
+.board-frame {
+  --cell-by-width: calc(
+    (100cqi - (2 * var(--frame-pad-inline)) - ((var(--board-size) + 1) * var(--board-gap))) /
+      var(--board-size)
+  );
+  --cell-by-height: calc(
+    (
+        100dvh - var(--shell-header) - (2 * var(--frame-pad-block)) - var(--rack-gap) -
+          ((var(--board-size) + 1) * var(--board-gap))
+      ) / (var(--board-size) + 1)
+  );
+  --cell: clamp(var(--cell-min), min(var(--cell-by-width), var(--cell-by-height)), var(--cell-max));
+
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--rack-gap);
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--frame-pad-block) var(--frame-pad-inline);
+  box-sizing: border-box;
+}
+
+.board-scroll-wrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.board-scroll {
+  display: flex;
+  flex: 1;
+  align-items: safe center;
+  justify-content: safe center;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--wa-grout) transparent;
+}
+
+.board-scroll-hint {
+  position: absolute;
+  right: 0;
+  bottom: -8px;
+  left: 0;
+  height: 4px;
+  border-radius: var(--wa-radius-tile);
+  background: color-mix(in srgb, var(--wa-tile) 28%, transparent);
+  pointer-events: none;
+}
+
+.board-scroll-hint[hidden] {
+  display: none;
+}
+
+.board-scroll-thumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: var(--wa-tile);
+}
+
+.board-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.board-scroll::-webkit-scrollbar-thumb {
+  background: var(--wa-grout);
+  border-radius: var(--wa-radius-control);
+}
+
+.board-center {
+  display: flex;
+  flex: none;
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--board-gap);
+  width: max-content;
+  padding: var(--board-gap);
+  border-radius: var(--wa-radius-control);
+}
+
+.board:focus-visible {
+  outline: 2px solid var(--wa-focus-on-felt);
+  outline-offset: 4px;
+}
+
+.board-row {
+  display: grid;
+  grid-template-columns: repeat(var(--board-size), var(--cell));
+  gap: var(--board-gap);
+}
+
+.square {
+  position: relative;
+  width: var(--cell);
+  height: var(--cell);
+  padding: 0;
+  border: 0;
+  border-radius: var(--wa-radius-tile);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: box-shadow var(--wa-duration-settle) var(--wa-ease-settle);
+}
+
+.square:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wa-tile) 55%, transparent);
+}
+
+.square:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--wa-focus-on-felt);
+  z-index: 1;
+}
+
+.rack {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  width: 100%;
+  max-width: 100%;
+}
+
+.tile {
+  position: relative;
+  display: block;
+  width: var(--cell, 48px);
+  height: var(--cell, 48px);
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: var(--wa-radius-tile);
+  overflow: hidden;
+  user-select: none;
+  touch-action: manipulation;
+  transition:
+    box-shadow var(--wa-duration-lift) var(--wa-ease-settle),
+    transform var(--wa-duration-lift) var(--wa-ease-settle);
+}
+
+.tile[data-occupied="false"] {
+  border: 1px solid var(--wa-grout);
+}
+
+.tile[data-occupied="true"] {
+  border: 1px solid var(--wa-tile-edge);
+}
+
+.tile[data-occupied="true"]:hover,
+.tile[data-occupied="true"]:focus-visible {
+  box-shadow: var(--wa-shadow-lift);
+}
+
+.tile:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--wa-felt),
+    0 0 0 4px var(--wa-focus-on-felt);
+}
+
+.tile-letter {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--wa-font-tile);
+  font-size: calc(var(--cell, 48px) * 0.56);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  transform: translateY(-0.06em);
+}
+
+.tile-points {
+  position: absolute;
+  right: 9%;
+  bottom: 8%;
+  font-family: var(--wa-font-tile);
+  font-size: calc(var(--cell, 48px) * 0.22);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+@media (min-width: 768px) {
+  .board-frame {
+    justify-content: center;
+  }
+
+  .board-scroll,
+  .board-scroll-wrap {
+    flex: 0 1 auto;
+  }
+}
