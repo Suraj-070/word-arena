@@ -1,0 +1,86 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm --filter @word-arena/web build
+
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: word_arena
+          POSTGRES_PASSWORD: word_arena
+          POSTGRES_DB: word_arena_verify
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U word_arena -d word_arena_verify"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Independent Postgres connections
+        run: pnpm --filter @word-arena/online exec vitest run test/postgres-sessions.test.ts
+        env:
+          WORD_ARENA_POSTGRES_URL: postgres://word_arena:word_arena@127.0.0.1:5432/word_arena_verify
+          WORD_ARENA_POSTGRES_REQUIRED: "1"
+
+  deno:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: word_arena
+          POSTGRES_PASSWORD: word_arena
+          POSTGRES_DB: word_arena_verify
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U word_arena -d word_arena_verify"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.8
+      - name: Check the Edge Function entry
+        working-directory: supabase/functions/match-action
+        run: deno check index.ts
+      - name: Run the Edge Function entry
+        working-directory: supabase/functions/match-action
+        run: deno test --allow-env --allow-net --allow-read --allow-run entry_test.ts
+        env:
+          WORD_ARENA_POSTGRES_URL: postgres://word_arena:word_arena@127.0.0.1:5432/word_arena_verify
+          WORD_ARENA_POSTGRES_REQUIRED: "1"

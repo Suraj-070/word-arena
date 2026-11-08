@@ -3,7 +3,7 @@ import { fromPostgresJs } from '../../../packages/online/src/sql.ts';
 
 const databaseUrl = Deno.env.get('SUPABASE_DB_URL') ?? '';
 const database = databaseUrl
-  ? fromPostgresJs((await import('npm:postgres')).default(databaseUrl, { prepare: false, max: 1 }))
+  ? fromPostgresJs((await import('npm:postgres@3.4.7')).default(databaseUrl, { prepare: false, max: 1 }))
   : null;
 
 const env: EdgeEnv = {

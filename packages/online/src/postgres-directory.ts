@@ -267,7 +267,7 @@ export class PostgresDirectory implements MatchDirectory {
     await tx.query(
       `insert into arena.receipts (match_id, idempotency_key, user_id, command, outcome)
        values ($1, $2, $3, $4::jsonb, $5::jsonb)`,
-      [matchId, idempotencyKey, userId, canonicalCommand(command), JSON.stringify(decided.result)],
+      [matchId, idempotencyKey, userId, JSON.parse(canonicalCommand(command)), decided.result],
     );
     if (decided.finished) {
       await tx.query(`update public.rooms set status = 'finished' where id = $1 and status = 'playing'`, [live.roomId]);
@@ -290,7 +290,7 @@ export class PostgresDirectory implements MatchDirectory {
       [
         id,
         roomId,
-        JSON.stringify(state.board),
+        state.board,
         state.players[0].score,
         state.players[1].score,
         state.players[0].name,
@@ -302,8 +302,8 @@ export class PostgresDirectory implements MatchDirectory {
         state.consecutivePasses,
         state.version,
         endKind,
-        state.end ? JSON.stringify(state.end) : null,
-        state.last ? JSON.stringify(publicLast(state)) : null,
+        state.end,
+        state.last ? publicLast(state) : null,
         this.dictionary !== null,
         state.rules.exchangeAllowed,
         state.rules.boardSize,
@@ -314,14 +314,14 @@ export class PostgresDirectory implements MatchDirectory {
        values ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5, $6, $7::jsonb, $8, $9::jsonb)`,
       [
         id,
-        JSON.stringify(state.bag),
-        JSON.stringify(state.players[0].rack),
-        JSON.stringify(state.players[1].rack),
+        state.bag,
+        state.players[0].rack,
+        state.players[1].rack,
         hostId,
         guestId,
-        JSON.stringify(state.rules),
+        state.rules,
         state.version,
-        JSON.stringify(state),
+        state,
       ],
     );
   }
@@ -349,7 +349,7 @@ export class PostgresDirectory implements MatchDirectory {
        returning id`,
       [
         id,
-        JSON.stringify(state.board),
+        state.board,
         state.players[0].score,
         state.players[1].score,
         state.players[0].name,
@@ -361,8 +361,8 @@ export class PostgresDirectory implements MatchDirectory {
         state.consecutivePasses,
         state.version,
         state.end?.kind ?? null,
-        state.end ? JSON.stringify(state.end) : null,
-        state.last ? JSON.stringify(publicLast(state)) : null,
+        state.end,
+        state.last ? publicLast(state) : null,
         this.dictionary !== null,
         expectedVersion,
       ],
@@ -379,12 +379,12 @@ export class PostgresDirectory implements MatchDirectory {
        where match_id = $1`,
       [
         id,
-        JSON.stringify(state.bag),
-        JSON.stringify(state.players[0].rack),
-        JSON.stringify(state.players[1].rack),
-        JSON.stringify(state.rules),
+        state.bag,
+        state.players[0].rack,
+        state.players[1].rack,
+        state.rules,
         state.version,
-        JSON.stringify(state),
+        state,
       ],
     );
     return true;

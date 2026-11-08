@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,16 @@ const entry = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/functions/match-action/index.ts'),
   'utf8',
 );
+
+function sourceFiles(dir: string): string[] {
+  const files: string[] = [];
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) files.push(...sourceFiles(path));
+    else if (/\.(ts|tsx|js|css)$/.test(name)) files.push(path);
+  }
+  return files;
+}
 
 function request(body: unknown, token?: string, method = 'POST') {
   return new Request('https://arena.local/match-action', {
@@ -23,7 +33,15 @@ describe('match action edge entry', () => {
   it('is wired to the postgres handler and answers preflight without a database', async () => {
     expect(entry).toContain('createEdgeHandler');
     expect(entry).toContain('fromPostgresJs');
+    expect(entry).not.toContain('MemoryDirectory');
     expect(entry).not.toContain('not deployed');
+    expect(entry).not.toContain('SUPABASE_DB_URL=');
+    const webRoot = join(dirname(fileURLToPath(import.meta.url)), '../../../apps/web/src');
+    for (const file of sourceFiles(webRoot)) {
+      const text = readFileSync(file, 'utf8');
+      expect(text, file).not.toContain('SUPABASE_DB_URL');
+      expect(text, file).not.toMatch(/postgres:\/\//);
+    }
     const handler = createEdgeHandler({}, null);
     const preflight = await handler(request(null, undefined, 'OPTIONS'));
     expect(preflight.status).toBe(204);
