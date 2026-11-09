@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { arenaStandardRules } from '@word-arena/engine';
-import { resetTable } from '../features/match/table-store';
+import { resetTable, useTableStore } from '../features/match/table-store';
 import { THEME_STORAGE_KEY, useThemeStore } from '../stores/theme';
 import { App } from './App';
 
@@ -39,6 +39,21 @@ describe('App shell', () => {
     expect(screen.getByText(/No dictionary is configured/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
     expect(screen.queryByText(/L2|L3|W2|W3/)).not.toBeInTheDocument();
+  });
+
+  it('uses Classic bonuses for the next match and can switch that match to Wild', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'New match' }));
+    expect(screen.getAllByText('L2').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('L3').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('W2').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('W3').length).toBeGreaterThan(0);
+    expect(useTableStore.getState().match.rules.scoring.tileUpgrade).toBe('classic');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Scoring for the next match' }), 'wild');
+    await user.click(screen.getByRole('button', { name: 'New match' }));
+    expect(useTableStore.getState().match.rules.scoring.tileUpgrade).toBe('wild');
+    expect(screen.getAllByText('L2').length).toBeGreaterThan(0);
   });
 
   it('marks reduced motion on the document', () => {

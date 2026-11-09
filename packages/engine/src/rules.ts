@@ -266,10 +266,11 @@ function readScoring(value: unknown, errors: RulesError[]): ScoringRules | undef
   }
   const keys = Object.keys(value);
   for (const key of keys) {
-    if (key !== 'letterBonusOnNewTilesOnly' && key !== 'wordMultipliersCombine') {
+    if (key !== 'letterBonusOnNewTilesOnly' && key !== 'wordMultipliersCombine' && key !== 'tileUpgrade') {
       errors.push(error('scoring', `Unknown scoring field "${key}".`, `scoring.${key}`));
     }
   }
+  const tileUpgrade = readTileUpgrade(value.tileUpgrade, errors);
   if (value.letterBonusOnNewTilesOnly !== true) {
     errors.push(
       error(
@@ -282,8 +283,23 @@ function readScoring(value: unknown, errors: RulesError[]): ScoringRules | undef
   if (value.wordMultipliersCombine !== 'product') {
     errors.push(error('scoring', 'Word multipliers combine by product.', 'scoring.wordMultipliersCombine'));
   }
-  if (value.letterBonusOnNewTilesOnly !== true || value.wordMultipliersCombine !== 'product') return undefined;
-  return { letterBonusOnNewTilesOnly: true, wordMultipliersCombine: 'product' };
+  if (
+    value.letterBonusOnNewTilesOnly !== true ||
+    value.wordMultipliersCombine !== 'product' ||
+    tileUpgrade === undefined
+  ) {
+    return undefined;
+  }
+  return { letterBonusOnNewTilesOnly: true, wordMultipliersCombine: 'product', tileUpgrade };
+}
+
+function readTileUpgrade(value: unknown, errors: RulesError[]): 'classic' | 'wild' | undefined {
+  if (value === undefined) return 'classic';
+  if (value !== 'classic' && value !== 'wild') {
+    errors.push(error('scoring', 'Tile upgrade must be classic or wild.', 'scoring.tileUpgrade'));
+    return undefined;
+  }
+  return value;
 }
 
 function readPassLimit(value: unknown, errors: RulesError[]): number | undefined {

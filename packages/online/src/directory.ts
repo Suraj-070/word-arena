@@ -2,10 +2,12 @@ import {
   applyMatchAction,
   createMatch,
   arenaStandardRules,
+  rulesWithScoringMode,
   type DictionaryProvider,
   type MatchState,
   type RandomSource,
   type Rules,
+  type TileUpgrade,
   type Seat,
   type TilePlacement,
 } from '@word-arena/engine';
@@ -44,7 +46,7 @@ export interface MatchDirectory {
   createRoom(userId: string, displayName: string): Promise<RoomResult>;
   joinRoom(userId: string, code: string, displayName: string): Promise<RoomResult>;
   setReady(userId: string, roomId: string): Promise<RoomResult>;
-  startMatch(userId: string, roomId: string): Promise<RoomResult>;
+  startMatch(userId: string, roomId: string, scoringMode?: TileUpgrade): Promise<RoomResult>;
   cancelRoom(userId: string, roomId: string): Promise<RoomResult>;
   setPresence(userId: string, roomId: string, connected: boolean): Promise<RoomResult>;
   readRoom(userId: string, roomId: string): Promise<RoomResult>;
@@ -102,8 +104,8 @@ export class MemoryDirectory {
     return this.enqueue(() => this.setReadyNow(userId, roomId));
   }
 
-  startMatch(userId: string, roomId: string): Promise<RoomResult> {
-    return this.enqueue(() => this.startMatchNow(userId, roomId));
+  startMatch(userId: string, roomId: string, scoringMode?: TileUpgrade): Promise<RoomResult> {
+    return this.enqueue(() => this.startMatchNow(userId, roomId, scoringMode));
   }
 
   cancelRoom(userId: string, roomId: string): Promise<RoomResult> {
@@ -188,7 +190,7 @@ export class MemoryDirectory {
     return { ok: true, room: this.roomView(room.room, userId) };
   }
 
-  private startMatchNow(userId: string, roomId: string): RoomResult {
+  private startMatchNow(userId: string, roomId: string, scoringMode?: TileUpgrade): RoomResult {
     const room = this.requireMember(userId, roomId);
     if (!room.ok) return room;
     if (room.room.hostId !== userId) return fail('not-host', 'Only the host can start the match.');
@@ -199,8 +201,10 @@ export class MemoryDirectory {
     const host = seated[0];
     const guest = seated[1];
     if (!host || !guest) return fail('not-ready', 'Both players need to be ready before the match starts.');
+    const rules = rulesForMatch(this.rules, scoringMode);
+    if ('ok' in rules) return rules;
     const state = createMatch({
-      rules: this.rules,
+      rules,
       names: [host.displayName, guest.displayName],
       random: this.random,
     });
@@ -431,11 +435,18 @@ export function playerView(match: LiveMatch, userId: string): PlayerMatch {
     rackCounts: [left.rack.length, right.rack.length],
     end: match.state.end,
     last: match.state.last
-      ? { kind: match.state.last.kind, seat: match.state.last.seat, total: match.state.last.score?.total ?? null }
+      ? {
+          kind: match.state.last.kind,
+          seat: match.state.last.seat,
+          total: match.state.last.score?.total ?? null,
+          score: match.state.last.score,
+        }
       : null,
     dictionaryAvailable: match.dictionary !== null,
     exchangeAllowed: match.state.rules.exchangeAllowed,
     bonuses: match.state.rules.bonuses,
+    centerWordMultiplier: match.state.rules.centerWordMultiplier,
+    tileUpgrade: match.state.rules.scoring?.tileUpgrade === 'wild' ? 'wild' : 'classic',
     yourSeat: seat,
     rack: match.state.players[seat].rack,
   };
@@ -447,6 +458,14 @@ function seatOf(match: LiveMatch, userId: string): Seat {
 
 function member(roomId: string, userId: string, seat: Seat, displayName: string): Member {
   return { roomId, userId, seat, ready: false, connected: true, displayName };
+}
+
+export function rulesForMatch(base: Rules, scoringMode?: TileUpgrade): Rules | OnlineFailure {
+  if (scoringMode !== undefined && scoringMode !== 'classic' && scoringMode !== 'wild') {
+    return fail('invalid-command', 'That scoring mode is not available.');
+  }
+  if (!scoringMode) return base;
+  return rulesWithScoringMode(base, scoringMode);
 }
 
 function fail(code: string, message: string): OnlineFailure {

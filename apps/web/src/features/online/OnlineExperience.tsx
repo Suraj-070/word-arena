@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { followMatch } from '@word-arena/online/client';
 import { readCell, type Letter } from '@word-arena/engine';
+import { bonusMarks, scoringCopy } from '../match/board-marks';
+import { ScoringBadge } from '../match/ScoringBadge';
+import { Count, PlayFeedback, useFreshPlacements, type SquareEffect } from '../match/celebration';
 import { BlankLetterDialog } from '../board/BlankLetterDialog';
 import { Board, type BoardFace } from '../board/Board';
 import { BoardScroll } from '../board/BoardScroll';
@@ -232,6 +235,7 @@ function Lobby({ user, port, onSignOut }: { user: SessionUser; port: RoomPort; o
 }
 
 function WaitingRoom({ room, port, onChange }: { room: RoomView; port: RoomPort; onChange: (room: RoomView) => void }) {
+  const [scoringMode, setScoringMode] = useState<'classic' | 'wild'>('classic');
   const opponent = room.members.find((member) => member.seat !== room.yourSeat);
   async function run(action: () => Promise<{ ok: true; room: RoomView } | { ok: false; message: string }>) {
     const result = await action();
@@ -255,12 +259,21 @@ function WaitingRoom({ room, port, onChange }: { room: RoomView; port: RoomPort;
       </button>
       {room.youAreHost ? (
         <>
+          <label className="dictionary-choice">
+            Scoring for this match
+            <select aria-label="Scoring for this match" value={scoringMode} onChange={(event) => setScoringMode(event.target.value === 'wild' ? 'wild' : 'classic')}>
+              <option value="classic">Classic</option>
+              <option value="wild">Wild</option>
+            </select>
+          </label>
+          <ScoringBadge mode={scoringMode} />
+          <p className="mode-note">This is the mode that starts with the match. Guests cannot change it. {scoringCopy(scoringMode)}</p>
           <button
             className="online-button"
             type="button"
             data-primary="true"
             disabled={room.status !== 'ready'}
-            onClick={() => void run(() => port.startMatch(room.id))}
+            onClick={() => void run(() => port.startMatch(room.id, scoringMode))}
           >
             Start match
           </button>
@@ -268,7 +281,7 @@ function WaitingRoom({ room, port, onChange }: { room: RoomView; port: RoomPort;
             Cancel room
           </button>
         </>
-      ) : null}
+      ) : <p className="mode-note">The host chooses Classic or Wild before the match starts. You cannot change the scoring mode.</p>}
     </div>
   );
 }
@@ -295,6 +308,8 @@ export function OnlineTable({
   const [draft, setDraft] = useState<{ tileId: string; row: number; col: number; assignedLetter?: Letter }[]>([]);
   const [pending, setPending] = useState<{ tileId: string; row: number; col: number } | null>(null);
   const [notice, setNotice] = useState('');
+  const [effects, setEffects] = useState<ReadonlyMap<string, SquareEffect>>(new Map());
+  const fresh = useFreshPlacements(current.version, current.last?.kind === 'play' ? current.last.score : null);
 
   useEffect(() => {
     const follow = followMatch({
@@ -343,7 +358,13 @@ export function OnlineTable({
       if (cell.kind !== 'occupied') continue;
       const letter = cell.letter ?? cell.assignedLetter;
       if (!letter) continue;
-      faces.set(`${row}-${col}`, { letter, points: cell.points, draft: false });
+      faces.set(`${row}-${col}`, {
+        letter,
+        points: cell.points,
+        draft: false,
+        upgraded: cell.upgraded === true,
+        fresh: fresh.has(`${row}-${col}`),
+      });
     }
   }
   for (const placement of draft) {
@@ -402,12 +423,14 @@ export function OnlineTable({
   }
 
   return (
-    <div className="board-frame" style={{ '--board-size': String(current.boardSize) } as CSSProperties}>
+    <div className="board-frame" data-scoring={current.tileUpgrade} style={{ '--board-size': String(current.boardSize) } as CSSProperties}>
       <BoardScroll>
         <div className="board-center">
           <Board
             boardSize={current.boardSize}
             faces={faces}
+            bonuses={bonusMarks(current.boardSize, current.bonuses, current.centerWordMultiplier)}
+            effects={effects}
             label="Online board"
             onUse={place}
             onRecall={(row, col) => setDraft(draft.filter((placement) => placement.row !== row || placement.col !== col))}
@@ -416,8 +439,16 @@ export function OnlineTable({
       </BoardScroll>
       <section className="match-chrome" aria-label="Online match">
         <p className="match-status">
-          <span>{finished ? 'Match over' : `${current.names[current.turn]} to move`}</span>
-          <span>{current.names[0]} {current.scores[0]} · {current.names[1]} {current.scores[1]}</span>
+          <span className="player-turn" data-active={finished || current.turn !== current.yourSeat ? 'false' : 'true'}>
+            <ScoringBadge mode={current.tileUpgrade} />
+            {' '}
+            {finished ? 'Match over' : `${current.names[current.turn]} to move`}
+          </span>
+          <span>
+            <span className="player-turn" data-active={!finished && current.turn === 0 ? 'true' : 'false'}>{current.names[0]} <Count value={current.scores[0]} /></span>
+            {' · '}
+            <span className="player-turn" data-active={!finished && current.turn === 1 ? 'true' : 'false'}>{current.names[1]} <Count value={current.scores[1]} /></span>
+          </span>
           <span>{link === 'offline' ? 'Reconnecting' : link === 'connecting' ? 'Reconnecting' : 'Connected'}</span>
         </p>
         <p className="match-message" aria-live="polite">
@@ -427,6 +458,18 @@ export function OnlineTable({
               : 'No dictionary is configured. Words are not checked, and a move cannot be submitted.')}
           {opponent && !opponent.connected ? ' Opponent disconnected. The match is unchanged.' : ''}
         </p>
+        <PlayFeedback
+          version={current.version}
+          score={current.last?.kind === 'play' ? current.last.score : null}
+          status={current.status}
+          end={current.end}
+          names={current.names}
+          scores={current.scores}
+          turn={current.turn}
+          you={current.yourSeat}
+          mode={current.tileUpgrade}
+          onEffects={setEffects}
+        />
         <div className="match-controls">
           <button type="button" className="match-action" data-primary="true" disabled={finished || draft.length === 0 || !current.dictionaryAvailable} onClick={() => void send({ type: 'play', placements: draft })}>
             Submit

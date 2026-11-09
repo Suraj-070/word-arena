@@ -40,11 +40,19 @@ export type BonusSquare = Coordinate & {
   readonly class: BonusClass;
 };
 
+/** Classic keeps the printed tile value. Wild writes a used letter bonus onto the tile. */
+export type TileUpgrade = 'classic' | 'wild';
+
 export type ScoringRules = {
   /** The engine rejects false. Letter bonuses apply only to tiles placed this turn. */
   readonly letterBonusOnNewTilesOnly: true;
   /** The engine rejects any other combination. */
   readonly wordMultipliersCombine: 'product';
+  /**
+   * Absent on matches saved before Classic and Wild. Those matches keep printed values.
+   * The validator fills this as classic when a rules object omits it.
+   */
+  readonly tileUpgrade: TileUpgrade;
 };
 
 /**
@@ -111,6 +119,8 @@ export type Cell =
       /** The letter a blank shows. Null on a letter tile. */
       readonly assignedLetter: Letter | null;
       readonly points: number;
+      /** Set when a Wild letter bonus has been written onto this tile. */
+      readonly upgraded?: true;
     };
 
 export type Board = {

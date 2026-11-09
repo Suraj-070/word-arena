@@ -6,6 +6,7 @@ import {
   inBounds,
   readCell,
   renamePlayer,
+  rulesWithScoringMode,
   validatePlay,
   arenaStandardRules,
   type DictionaryProvider,
@@ -54,13 +55,18 @@ type TableState = {
   exchange: () => void;
   resign: () => void;
   rename: (seat: Seat, name: string) => void;
+  scoringMode: 'classic' | 'wild';
+  setScoringMode: (mode: 'classic' | 'wild') => void;
+  newMatch: () => void;
 };
 
 const rules = arenaStandardRules();
+const openingRules = rulesWithScoringMode(rules, 'classic');
 
 export const useTableStore = create<TableState>((set, get) => ({
-  match: createMatch({ rules, random: liveRandom() }),
+  match: createMatch({ rules: openingRules, random: liveRandom() }),
   dictionary: null,
+  scoringMode: 'classic',
   random: liveRandom(),
   selected: [],
   draft: [],
@@ -213,6 +219,21 @@ export const useTableStore = create<TableState>((set, get) => ({
       return;
     }
     set({ match: result.state, notice: '' });
+  },
+  setScoringMode: (mode) => set({ scoringMode: mode }),
+  newMatch: () => {
+    const next = createMatch({
+      rules: rulesWithScoringMode(arenaStandardRules(), get().scoringMode),
+      random: liveRandom(),
+    });
+    set({
+      match: next,
+      dictionary: null,
+      selected: [],
+      draft: [],
+      pendingBlank: null,
+      notice: '',
+    });
   },
 }));
 

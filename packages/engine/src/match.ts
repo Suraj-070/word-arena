@@ -187,7 +187,7 @@ function play(
       state: finish(state, {
         players: payGoingOut(players, state.turn),
         bag: filled.bag,
-        board: applyPlay(state.board, checked.play),
+        board: applyPlay(state.board, checked.play, state.rules),
         end: { kind: 'going-out', seat: state.turn },
         last: { kind: 'play', seat: state.turn, score: checked.play.score },
       }),
@@ -199,7 +199,7 @@ function play(
     state: advance(state, {
       players,
       bag: filled.bag,
-      board: applyPlay(state.board, checked.play),
+      board: applyPlay(state.board, checked.play, state.rules),
       consecutivePasses: 0,
       last: { kind: 'play', seat: state.turn, score: checked.play.score },
     }),

@@ -1,5 +1,8 @@
 import type { MatchNotice } from './types';
 
+export { standings } from './results';
+export type { ResultKind, SeatResult } from './results';
+
 export type Snapshot = { readonly version: number };
 
 /** A realtime payload is a notice. The same or an older version is ignored. Anything newer asks for a fresh server read. */

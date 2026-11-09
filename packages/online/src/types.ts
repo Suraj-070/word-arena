@@ -1,4 +1,4 @@
-import type { Board, BonusSquare, Letter, MatchEnd, Seat, TileInstance } from '@word-arena/engine';
+import type { Board, BonusSquare, Letter, MatchEnd, ScoreBreakdown, Seat, TileInstance, TileUpgrade } from '@word-arena/engine';
 
 export type RoomStatus = 'waiting' | 'ready' | 'playing' | 'cancelled' | 'finished';
 
@@ -41,10 +41,18 @@ export type PublicMatch = {
   readonly names: readonly [string, string];
   readonly rackCounts: readonly [number, number];
   readonly end: MatchEnd | null;
-  readonly last: { readonly kind: 'play' | 'pass' | 'exchange' | 'resign'; readonly seat: Seat; readonly total: number | null } | null;
+  readonly last: {
+    readonly kind: 'play' | 'pass' | 'exchange' | 'resign';
+    readonly seat: Seat;
+    readonly total: number | null;
+    readonly score: ScoreBreakdown | null;
+  } | null;
   readonly dictionaryAvailable: boolean;
   readonly exchangeAllowed: boolean;
   readonly bonuses: readonly BonusSquare[];
+  readonly centerWordMultiplier: number;
+  /** Taken from the match snapshot. A client cannot change it after the start. */
+  readonly tileUpgrade: TileUpgrade;
 };
 
 /** Authorised view for one player. The opponent's rack and the bag are absent. */

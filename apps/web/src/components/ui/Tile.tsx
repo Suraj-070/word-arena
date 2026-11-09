@@ -14,6 +14,10 @@ export type TileProps = {
   onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerMove?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onPointerUp?: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  placed?: boolean;
+  upgraded?: boolean;
+  /** A confirmed upgrade that just arrived. A restored tile leaves this off. */
+  fresh?: boolean;
 };
 
 export function Tile({
@@ -28,6 +32,9 @@ export function Tile({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  placed = false,
+  upgraded = false,
+  fresh = false,
 }: TileProps) {
   const empty = letter === undefined || letter === '';
   const reduceMotion = useReducedMotion() === true;
@@ -38,9 +45,13 @@ export function Tile({
     'data-occupied': empty ? 'false' : 'true',
     'data-selected': selected ? 'true' : 'false',
     'data-rack-index': rackIndex,
-    whileHover: empty || reduceMotion ? undefined : { y: -2 },
+    'data-upgraded': upgraded ? 'true' : 'false',
+    'data-fresh': fresh ? 'true' : 'false',
+    whileHover: empty || reduceMotion || placed ? undefined : { y: -2 },
+    initial: !placed || reduceMotion ? false : { scale: 0.94, y: 3 },
+    animate: !placed || reduceMotion ? undefined : { scale: [0.94, 1.04, 1], y: [3, 0, 0] },
     transition: {
-      duration: reduceMotion ? 0 : 0.12,
+      duration: reduceMotion ? 0 : placed ? 0.28 : 0.12,
       ease: [0.2, 0, 0, 1] as const,
     },
   };

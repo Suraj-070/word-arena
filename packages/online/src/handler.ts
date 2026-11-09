@@ -19,6 +19,7 @@ const ALLOWED_FIELDS = new Set([
   'command',
   'idempotencyKey',
   'expectedVersion',
+  'scoringMode',
 ]);
 
 type Body = {
@@ -30,6 +31,7 @@ type Body = {
   readonly command?: MatchCommand;
   readonly idempotencyKey?: string;
   readonly expectedVersion?: number;
+  readonly scoringMode?: string;
 };
 
 export async function handleMatchRequest(request: Request, deps: MatchHandlerDeps): Promise<Response> {
@@ -63,6 +65,9 @@ function bodyError(value: unknown): string | null {
   if (body.idempotencyKey !== undefined && typeof body.idempotencyKey !== 'string') return 'That field is not accepted.';
   if (body.connected !== undefined && typeof body.connected !== 'boolean') return 'That field is not accepted.';
   if (body.command !== undefined && !cleanCommand(body.command)) return 'The action is not valid.';
+  if (body.scoringMode !== undefined && body.scoringMode !== 'classic' && body.scoringMode !== 'wild') {
+    return 'That scoring mode is not available.';
+  }
   return null;
 }
 
@@ -98,7 +103,11 @@ async function dispatch(directory: MatchDirectory, userId: string, displayName: 
     case 'set-ready':
       return directory.setReady(userId, body.roomId ?? '');
     case 'start-match':
-      return directory.startMatch(userId, body.roomId ?? '');
+      return directory.startMatch(
+        userId,
+        body.roomId ?? '',
+        body.scoringMode === 'wild' ? 'wild' : body.scoringMode === 'classic' ? 'classic' : undefined,
+      );
     case 'cancel-room':
       return directory.cancelRoom(userId, body.roomId ?? '');
     case 'presence':

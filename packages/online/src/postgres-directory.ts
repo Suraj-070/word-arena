@@ -6,6 +6,7 @@ import {
   type RandomSource,
   type Rules,
   type Seat,
+  type TileUpgrade,
 } from '@word-arena/engine';
 import { cleanDisplayName, normaliseCode, roomCode } from './codes';
 import {
@@ -13,6 +14,7 @@ import {
   cryptoRandom,
   decideAct,
   playerView,
+  rulesForMatch,
   type DirectoryOptions,
   type LiveMatch,
   type MatchDirectory,
@@ -151,7 +153,7 @@ export class PostgresDirectory implements MatchDirectory {
     });
   }
 
-  startMatch(userId: string, roomId: string): Promise<RoomResult> {
+  startMatch(userId: string, roomId: string, scoringMode?: TileUpgrade): Promise<RoomResult> {
     return this.db.transaction(async (tx) => {
       const room = await this.lockRoom(tx, 'id = $1', [roomId]);
       const members = room ? await this.memberRows(tx, room.id) : [];
@@ -164,7 +166,9 @@ export class PostgresDirectory implements MatchDirectory {
       const host = seated[0];
       const guest = seated[1];
       if (!host || !guest) return fail('not-ready', 'Both players need to be ready before the match starts.');
-      const state = createMatch({ rules: this.rules, names: [host.display_name, guest.display_name], random: this.random });
+      const rules = rulesForMatch(this.rules, scoringMode);
+      if ('ok' in rules) return rules;
+      const state = createMatch({ rules, names: [host.display_name, guest.display_name], random: this.random });
       const id = this.ids();
       await this.insertMatch(tx, id, roomId, state, host.user_id, guest.user_id);
       await tx.query(`update public.rooms set status = 'playing', match_id = $2 where id = $1`, [roomId, id]);

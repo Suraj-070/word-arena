@@ -18,7 +18,8 @@ export {
 export { LETTERS, isLetter } from './letters';
 export { applyMatchAction, arrangeRack, createMatch, createTileBag, dealMatch, renamePlayer, shuffleTiles } from './match';
 export { validatePlay } from './placement';
-export { arenaStandardDefinition, arenaStandardRules } from './presets';
+export { ARENA_BONUS_LAYOUT } from './bonus-layout';
+export { arenaStandardDefinition, arenaStandardRules, rulesWithScoringMode } from './presets';
 export { pointsFor, tileTotal, validateRules } from './rules';
 export { bingoAward, bonusAt, scoreFormedWords } from './scoring';
 
@@ -57,5 +58,6 @@ export type {
   TileDefinition,
   TileInstance,
   TilePlacement,
+  TileUpgrade,
   ValidatedPlay,
 } from './types';

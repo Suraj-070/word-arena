@@ -233,4 +233,66 @@ describe('authoritative match', () => {
     const after = await table.readMatch('host', matchId);
     expect(after).toEqual(before);
   });
+
+  it('stores a Wild upgrade for both players and does not apply it twice', async () => {
+    const rules = validateRules({
+      ...smallRules(),
+      centerWordMultiplier: 1,
+      bonuses: [{ row: 4, col: 5, class: 'letter-2' }],
+    });
+    if (!rules.ok) throw new Error('rules');
+    const words = ['A', 'T', 'E'].flatMap((left) => ['A', 'T', 'E'].map((right) => `${left}${right}`));
+    let n = 0;
+    const table = new MemoryDirectory({
+      now: () => '2026-11-09T00:00:00.000Z',
+      random: () => 0,
+      ids: () => `wild-${n += 1}`,
+      dictionary: createMemoryDictionary(rules.rules.dictionaryVersionId, words),
+      rules: rules.rules,
+      ttlMs: 60_000,
+    });
+    const host = await table.createRoom('host', 'Ada');
+    if (!host.ok) throw new Error(host.message);
+    await table.joinRoom('guest', host.room.code, 'Bea');
+    await table.setReady('host', host.room.id);
+    await table.setReady('guest', host.room.id);
+    const startedRoom = await table.startMatch('host', host.room.id, 'wild');
+    if (!startedRoom.ok || !startedRoom.room.matchId) throw new Error('start');
+    const matchId = startedRoom.room.matchId;
+    const opening = await table.readMatch('host', matchId);
+    if (!opening.ok) throw new Error(opening.message);
+    expect(opening.match.tileUpgrade).toBe('wild');
+    const bonusTile = opening.match.rack.find((tile) => tile.letter);
+    const other = opening.match.rack.find((tile) => tile.id !== bonusTile?.id);
+    if (!bonusTile || !other) throw new Error('rack');
+    const played = await table.act('host', matchId, {
+      type: 'play',
+      placements: [
+        { row: 4, col: 4, tileId: other.id, ...(other.letter ? {} : { assignedLetter: 'A' as const }) },
+        { row: 4, col: 5, tileId: bonusTile.id, ...(bonusTile.letter ? {} : { assignedLetter: 'A' as const }) },
+      ],
+    }, 'wild-play', opening.match.version);
+    expect(played.ok).toBe(true);
+    if (!played.ok) return;
+    const cell = played.match.board.cells[4 * 9 + 5];
+    if (cell?.kind !== 'occupied') throw new Error('cell');
+    expect(cell.points).toBe(bonusTile.points === 0 ? 0 : bonusTile.points * 2);
+    expect(cell.upgraded).toBe(bonusTile.points > 0 ? true : undefined);
+    const guest = await table.readMatch('guest', matchId);
+    const again = await table.readMatch('host', matchId);
+    expect(guest.ok && again.ok).toBe(true);
+    if (!guest.ok || !again.ok) return;
+    expect(guest.match.board.cells[4 * 9 + 5]).toEqual(played.match.board.cells[4 * 9 + 5]);
+    expect(again.match.board.cells[4 * 9 + 5]).toEqual(played.match.board.cells[4 * 9 + 5]);
+    expect(again.match.scores[0]).toBe(played.match.scores[0]);
+    const replay = await table.act('host', matchId, {
+      type: 'play',
+      placements: [{ row: 4, col: 6, tileId: bonusTile.id }],
+    }, 'replay', again.match.version);
+    expect(replay.ok).toBe(false);
+    const settled = await table.readMatch('guest', matchId);
+    if (!settled.ok) throw new Error(settled.message);
+    expect(settled.match.board.cells[4 * 9 + 5]).toEqual(played.match.board.cells[4 * 9 + 5]);
+    expect(settled.match.scores).toEqual(played.match.scores);
+  });
 });

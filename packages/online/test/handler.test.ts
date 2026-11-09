@@ -73,6 +73,33 @@ describe('match action handler', () => {
     });
     expect(scored.status).toBe(400);
     expect(scored.body.code).toBe('invalid-command');
+    const mode = await call({ op: 'start-match', roomId: 'room', scoringMode: 'speed', score: 40, bonuses: [] });
+    expect(mode.status).toBe(400);
+    expect(mode.body.message).toBe('That field is not accepted.');
+  });
+
+  it('stores Classic or Wild from the host and refuses a client tile upgrade', async () => {
+    const first = await call({ op: 'create-room' });
+    const room = first.body.room as { id: string; code: string };
+    await call({ op: 'join-room', code: room.code }, 'guest', first.used);
+    await call({ op: 'set-ready', roomId: room.id }, 'host', first.used);
+    await call({ op: 'set-ready', roomId: room.id }, 'guest', first.used);
+    const started = await call({ op: 'start-match', roomId: room.id, scoringMode: 'wild' }, 'host', first.used);
+    expect(started.status).toBe(200);
+    const matchId = (started.body.room as { matchId: string }).matchId;
+    const host = await call({ op: 'read-match', matchId }, 'host', first.used);
+    const guest = await call({ op: 'read-match', matchId }, 'guest', first.used);
+    expect((host.body.match as { tileUpgrade: string }).tileUpgrade).toBe('wild');
+    expect((guest.body.match as { tileUpgrade: string }).tileUpgrade).toBe('wild');
+    expect((host.body.match as { bonuses: unknown[] }).bonuses.length).toBe(0);
+    const forged = await call({
+      op: 'act',
+      matchId,
+      idempotencyKey: 'upgrade',
+      expectedVersion: 1,
+      command: { type: 'play', placements: [{ row: 4, col: 4, tileId: 'A-1', upgraded: true }] },
+    }, 'host', first.used);
+    expect(forged.status).toBe(400);
   });
 
   it('uses the verified user and keeps racks out of the other player response', async () => {

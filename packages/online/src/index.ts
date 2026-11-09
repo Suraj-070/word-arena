@@ -8,6 +8,8 @@ export type { MatchHandlerDeps, VerifiedUser } from './handler';
 export { PostgresDirectory } from './postgres-directory';
 export { fromPostgresJs, pgliteDatabase } from './sql';
 export type { Sql, SqlDatabase } from './sql';
+export { seatResults, standings } from './results';
+export type { ResultKind, SeatResult } from './results';
 export { acceptSnapshot, followMatch, noteNotice } from './sync';
 export type {
   MatchCommand,

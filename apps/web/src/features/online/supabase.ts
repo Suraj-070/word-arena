@@ -54,7 +54,11 @@ export function supabaseRooms(client: SupabaseClient, _user: SessionUser): RoomP
     createRoom: () => invoke(client, { op: 'create-room' }),
     joinRoom: (code) => invoke(client, { op: 'join-room', code }),
     setReady: (roomId) => invoke(client, { op: 'set-ready', roomId }),
-    startMatch: (roomId) => invoke(client, { op: 'start-match', roomId }),
+    startMatch: (roomId, scoringMode) => invoke(client, {
+      op: 'start-match',
+      roomId,
+      ...(scoringMode ? { scoringMode } : {}),
+    }),
     cancelRoom: (roomId) => invoke(client, { op: 'cancel-room', roomId }),
     setPresence: (roomId, connected) => invoke(client, { op: 'presence', roomId, connected }),
     readRoom: (roomId) => invoke(client, { op: 'read-room', roomId }),

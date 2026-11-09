@@ -1,11 +1,14 @@
 import { useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
-import { readCell, type BonusClass, type DictionaryProvider, type PlayResult } from '@word-arena/engine';
+import { readCell, type DictionaryProvider, type PlayResult } from '@word-arena/engine';
 import { BlankLetterDialog } from '../board/BlankLetterDialog';
 import { Board, type BoardFace } from '../board/Board';
 import { BoardScroll } from '../board/BoardScroll';
 import { Rack, type RackTile } from '../board/Rack';
 import { Tile } from '../../components/ui/Tile';
+import { bonusMarks, nextMatchCopy, scoringCopy } from './board-marks';
+import { ScoringBadge } from './ScoringBadge';
+import { Count, PlayFeedback, useFreshPlacements, type SquareEffect } from './celebration';
 import { placementPreview, useTableStore } from './table-store';
 
 function statusMessage(notice: string, preview: PlayResult | null, dictionary: DictionaryProvider | null): string {
@@ -20,13 +23,6 @@ function statusMessage(notice: string, preview: PlayResult | null, dictionary: D
   }
   return 'Place tiles, then submit.';
 }
-
-const BONUS_LABEL: Record<BonusClass, string> = {
-  'letter-2': 'L2',
-  'letter-3': 'L3',
-  'word-2': 'W2',
-  'word-3': 'W3',
-};
 
 export function Table() {
   const match = useTableStore((state) => state.match);
@@ -49,6 +45,11 @@ export function Table() {
   const exchange = useTableStore((state) => state.exchange);
   const resign = useTableStore((state) => state.resign);
   const rename = useTableStore((state) => state.rename);
+  const scoringMode = useTableStore((state) => state.scoringMode);
+  const setScoringMode = useTableStore((state) => state.setScoringMode);
+  const newMatch = useTableStore((state) => state.newMatch);
+  const [effects, setEffects] = useState<ReadonlyMap<string, SquareEffect>>(new Map());
+  const fresh = useFreshPlacements(match.version, match.last?.kind === 'play' ? match.last.score : null);
 
   const drag = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null);
   const ignoreClick = useRef(false);
@@ -73,7 +74,13 @@ export function Table() {
       if (cell.kind !== 'occupied') continue;
       const letter = cell.letter ?? cell.assignedLetter;
       if (!letter) continue;
-      faces.set(`${row}-${col}`, { letter, points: cell.points, draft: false });
+      faces.set(`${row}-${col}`, {
+        letter,
+        points: cell.points,
+        draft: false,
+        upgraded: cell.upgraded === true,
+        fresh: fresh.has(`${row}-${col}`),
+      });
     }
   }
   for (const placement of draft) {
@@ -83,10 +90,7 @@ export function Table() {
     if (!letter) continue;
     faces.set(`${placement.row}-${placement.col}`, { letter, points: tile.points, draft: true });
   }
-  const bonuses = new Map<string, string>();
-  for (const bonus of match.rules.bonuses) {
-    bonuses.set(`${bonus.row}-${bonus.col}`, BONUS_LABEL[bonus.class]);
-  }
+  const bonuses = bonusMarks(match.rules.boardSize, match.rules.bonuses, match.rules.centerWordMultiplier);
 
   function onDragStart(id: string, event: ReactPointerEvent<HTMLButtonElement>) {
     if (event.button !== 0 || finished) return;
@@ -130,15 +134,17 @@ export function Table() {
   const ghostTile = ghost ? rackTiles.find((tile) => tile.id === ghost.id) : undefined;
   const canAct = !finished && draft.length === 0 && !pendingBlank;
   const style = { '--board-size': String(match.rules.boardSize) } as CSSProperties;
+  const activeMode = match.rules.scoring.tileUpgrade === 'wild' ? 'wild' : 'classic';
 
   return (
-    <div className="board-frame" style={style}>
+    <div className="board-frame" data-scoring={activeMode} style={style}>
       <BoardScroll>
         <div className="board-center">
           <Board
             boardSize={match.rules.boardSize}
             faces={faces}
             bonuses={bonuses}
+            effects={effects}
             label="Board"
             onUse={(row, col) => {
               const face = faces.get(`${row}-${col}`);
@@ -151,11 +157,15 @@ export function Table() {
       </BoardScroll>
       <section className="match-chrome" aria-label="Match">
         <p className="match-status">
-          <span>{finished ? 'Match over' : `${player.name} to move`}</span>
+          <span className="player-turn" data-active={finished ? 'false' : 'true'}>
+            <ScoringBadge mode={activeMode} />
+            {' '}
+            {finished ? 'Match over' : `${player.name} to move`}
+          </span>
           <span>
-            {match.players[0].name} {match.players[0].score}
+            <span className="player-turn" data-active={!finished && seat === 0 ? 'true' : 'false'}>{match.players[0].name} <Count value={match.players[0].score} /></span>
             {' · '}
-            {match.players[1].name} {match.players[1].score}
+            <span className="player-turn" data-active={!finished && seat === 1 ? 'true' : 'false'}>{match.players[1].name} <Count value={match.players[1].score} /></span>
           </span>
           <span>{match.bag.length} in the bag</span>
         </p>
@@ -201,7 +211,27 @@ export function Table() {
           <button type="button" className="match-action" disabled={!canAct} onClick={resign}>
             Resign
           </button>
+          <label className="dictionary-choice">
+            Next match scoring
+            <select aria-label="Scoring for the next match" value={scoringMode} onChange={(event) => setScoringMode(event.target.value === 'wild' ? 'wild' : 'classic')}>
+              <option value="classic">Classic</option>
+              <option value="wild">Wild</option>
+            </select>
+          </label>
+          <p className="mode-note">{nextMatchCopy()} {scoringCopy(scoringMode)}</p>
+          <button type="button" className="match-action" onClick={newMatch}>New match</button>
         </div>
+        <PlayFeedback
+          version={match.version}
+          score={match.last?.kind === 'play' ? match.last.score : null}
+          status={match.status}
+          end={match.end}
+          names={[match.players[0].name, match.players[1].name]}
+          scores={[match.players[0].score, match.players[1].score]}
+          turn={match.turn}
+          mode={activeMode}
+          onEffects={setEffects}
+        />
       </section>
       <Rack
         label={`${player.name} rack, ${rackTiles.length} tiles`}

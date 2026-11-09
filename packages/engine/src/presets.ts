@@ -1,6 +1,7 @@
+import { ARENA_BONUS_LAYOUT } from './bonus-layout';
 import { DEFAULT_DICTIONARY_PRESET_ID } from './dictionary';
 import { validateRules } from './rules';
-import type { Letter, Rules, TileDefinition } from './types';
+import type { Letter, Rules, TileDefinition, TileUpgrade } from './types';
 
 const STANDARD_LETTERS: readonly (readonly [Letter, number, number])[] = [
   ['A', 9, 1],
@@ -60,6 +61,7 @@ export function arenaStandardDefinition(): Record<string, unknown> {
     scoring: {
       letterBonusOnNewTilesOnly: true,
       wordMultipliersCombine: 'product',
+      tileUpgrade: 'classic',
     },
     passRoundLimit: 2,
     exchangeAllowed: true,
@@ -70,6 +72,24 @@ export function arenaStandardRules(): Rules {
   const result = validateRules(arenaStandardDefinition());
   if (!result.ok) {
     throw new Error(`Arena Standard preset is invalid: ${result.errors.map((issue) => issue.message).join(' ')}`);
+  }
+  return result.rules;
+}
+
+/**
+ * Classic or Wild on a 15-edge board uses the original bonus layout.
+ * A smaller board keeps the bonuses it already has, so a custom list is not replaced.
+ * Printed tile values stay put in Classic. Wild stores a used letter bonus on the tile.
+ */
+export function rulesWithScoringMode(base: Rules, mode: TileUpgrade): Rules {
+  const bonuses = base.boardSize === ARENA_BONUS_LAYOUT.boardSize ? ARENA_BONUS_LAYOUT.squares : base.bonuses;
+  const result = validateRules({
+    ...base,
+    bonuses,
+    scoring: { ...base.scoring, tileUpgrade: mode },
+  });
+  if (!result.ok) {
+    throw new Error(result.errors.map((issue) => issue.message).join(' '));
   }
   return result.rules;
 }

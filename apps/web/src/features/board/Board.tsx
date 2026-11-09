@@ -1,17 +1,22 @@
 import { useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent } from 'react';
+import type { BonusMark } from '../match/board-marks';
+import type { SquareEffect } from '../match/celebration';
 import { Square } from '../../components/ui/Square';
 
 export type BoardFace = {
   letter: string;
   points: number;
   draft: boolean;
+  upgraded?: boolean;
+  fresh?: boolean;
 };
 
 type BoardProps = {
   boardSize: number;
   faces?: ReadonlyMap<string, BoardFace>;
-  bonuses?: ReadonlyMap<string, string>;
+  bonuses?: ReadonlyMap<string, BonusMark>;
+  effects?: ReadonlyMap<string, SquareEffect>;
   onUse?: (row: number, col: number) => void;
   onRecall?: (row: number, col: number) => void;
   label?: string;
@@ -25,7 +30,7 @@ function cellKey(row: number, col: number): string {
   return `${row}-${col}`;
 }
 
-export function Board({ boardSize, faces, bonuses, onUse, onRecall, label = 'Board' }: BoardProps) {
+export function Board({ boardSize, faces, bonuses, effects, onUse, onRecall, label = 'Board' }: BoardProps) {
   if (!Number.isInteger(boardSize) || boardSize < 1) {
     throw new Error(`Board frame needs a positive whole edge. Received ${boardSize}.`);
   }
@@ -120,6 +125,7 @@ export function Board({ boardSize, faces, bonuses, onUse, onRecall, label = 'Boa
                 onPress={() => onUse?.(row, col)}
                 face={faces?.get(key)}
                 bonus={bonuses?.get(key)}
+                effect={effects?.get(key)}
               />
             );
           })}
