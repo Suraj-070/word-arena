@@ -2,7 +2,7 @@ import { MemoryDirectory } from '@word-arena/online';
 import { arenaStandardRules, validateRules, type Rules } from '@word-arena/engine';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readOnlineConfig } from './config';
 import { OnlineExperience, OnlineTable } from './OnlineExperience';
 import type { AuthPort, RoomPort, SessionUser } from './ports';
@@ -157,5 +157,61 @@ describe('online screens', () => {
     const guest = await table.readMatch('guest', started.room.matchId);
     if (!guest.ok) throw new Error(guest.message);
     expect(guest.match.turn).toBe(1);
+  });
+
+  it('chooses a blank letter in the shared dialog', async () => {
+    const prompt = vi.spyOn(window, 'prompt').mockReturnValue('Z');
+    const user = userEvent.setup();
+    const rules = validateRules({
+      ...arenaStandardRules(),
+      boardSize: 9,
+      rackSize: 2,
+      passRoundLimit: 1,
+      tileSet: [
+        { kind: 'blank', count: 1, points: 0 },
+        { kind: 'letter', letter: 'A', count: 2, points: 1 },
+        { kind: 'letter', letter: 'T', count: 2, points: 1 },
+        { kind: 'letter', letter: 'E', count: 2, points: 1 },
+      ],
+    });
+    if (!rules.ok) throw new Error('rules');
+    const table = new MemoryDirectory({
+      rules: rules.rules,
+      random: () => 0.999,
+      now: () => '2026-11-09T00:00:00.000Z',
+    });
+    const created = await table.createRoom('host', 'Ada');
+    if (!created.ok) throw new Error(created.message);
+    await table.joinRoom('guest', created.room.code, 'Bea');
+    await table.setReady('host', created.room.id);
+    await table.setReady('guest', created.room.id);
+    const started = await table.startMatch('host', created.room.id);
+    if (!started.ok || !started.room.matchId) throw new Error('start');
+    const port = rooms(table)({ id: 'host', email: 'ada@example.com' });
+    const loaded = await port.readMatch(started.room.matchId);
+    const room = await port.readRoom(created.room.id);
+    if (!loaded.ok || !room.ok) throw new Error('view');
+    render(
+      <OnlineTable
+        room={room.room}
+        match={loaded.match}
+        port={port}
+        link="online"
+        onMatch={() => undefined}
+        onRoom={() => undefined}
+        onLeave={() => undefined}
+      />,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Blank, 0 points' }));
+    await user.click(screen.getByRole('gridcell', { name: 'Empty square, row 5, column 5' }));
+    expect(screen.getByRole('dialog', { name: 'Choose a letter for the blank' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Choose a letter for the blank' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('gridcell', { name: 'Empty square, row 5, column 5' }));
+    await user.keyboard('q');
+    expect(screen.queryByRole('dialog', { name: 'Choose a letter for the blank' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Blank, 0 points' })).not.toBeInTheDocument();
+    expect(prompt).not.toHaveBeenCalled();
+    prompt.mockRestore();
   });
 });

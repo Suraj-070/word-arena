@@ -1,31 +1,11 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { PGlite } from '@electric-sql/pglite';
 import { describe, expect, it } from 'vitest';
+import { asUser, GUEST, HOST, openDatabase, OTHER } from './pg';
 
-const migration = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), '../../../supabase/migrations/20261109010000_online_rooms.sql'),
-  'utf8',
-);
-
-const HOST = '11111111-1111-4111-8111-111111111111';
-const GUEST = '22222222-2222-4222-8222-222222222222';
-const OTHER = '33333333-3333-4333-8333-333333333333';
 const ROOM = '44444444-4444-4444-8444-444444444444';
 const MATCH = '55555555-5555-4555-8555-555555555555';
 
 async function database() {
-  const db = new PGlite();
-  await db.exec(`
-    create schema if not exists auth;
-    create table if not exists auth.users (id uuid primary key, email text);
-    create or replace function auth.uid() returns uuid
-    language sql stable as $$
-      select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
-    $$;
-  `);
-  await db.exec(migration);
+  const db = await openDatabase();
   await db.exec(`
     insert into auth.users (id, email) values
       ('${HOST}', 'ada@example.com'),
@@ -54,14 +34,6 @@ async function database() {
       );
   `);
   return db;
-}
-
-async function asUser(db: PGlite, userId: string, sql: string) {
-  return db.transaction(async (tx) => {
-    await tx.exec(`select set_config('request.jwt.claim.sub', '${userId}', true)`);
-    await tx.exec('set local role authenticated');
-    return tx.query(sql);
-  });
 }
 
 describe('row level security on embedded Postgres', () => {

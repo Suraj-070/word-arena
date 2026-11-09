@@ -59,22 +59,34 @@ describe('match action handler', () => {
     expect(response.status).toBe(401);
   });
 
-  it('uses the verified user and ignores a body user, score, and bag', async () => {
-    const first = await call({ op: 'create-room', userId: 'guest', displayName: 'Impostor', score: 99, bag: ['Z-1'] });
+  it('rejects a forged user, name, score, rack, bag, or match state', async () => {
+    const forged = await call({ op: 'create-room', userId: 'guest', displayName: 'Impostor', score: 99, bag: ['Z-1'], rack: [], state: { version: 9 } });
+    expect(forged.status).toBe(400);
+    expect(forged.body.code).toBe('invalid-command');
+    expect(JSON.stringify(forged.body)).not.toContain('Z-1');
+    expect(JSON.stringify(forged.body)).not.toContain('Impostor');
+    const scored = await call({
+      op: 'act',
+      matchId: 'id-1',
+      idempotencyKey: 'play',
+      command: { type: 'play', placements: [{ row: 4, col: 4, tileId: 'A-1', points: 50 }] },
+    });
+    expect(scored.status).toBe(400);
+    expect(scored.body.code).toBe('invalid-command');
+  });
+
+  it('uses the verified user and keeps racks out of the other player response', async () => {
+    const first = await call({ op: 'create-room' });
     const room = first.body.room as { id: string; code: string; members: { displayName: string }[] };
     expect(room.members[0]?.displayName).toBe('Ada');
-    await call({ op: 'join-room', code: room.code, userId: 'host' }, 'guest', first.used);
+    await call({ op: 'join-room', code: room.code }, 'guest', first.used);
     await call({ op: 'set-ready', roomId: room.id }, 'host', first.used);
     await call({ op: 'set-ready', roomId: room.id }, 'guest', first.used);
-    const started = await call({ op: 'start-match', roomId: room.id, score: 500 }, 'host', first.used);
+    const started = await call({ op: 'start-match', roomId: room.id }, 'host', first.used);
     const matchId = (started.body.room as { matchId: string }).matchId;
     const rejected = await call({
       op: 'act',
       matchId,
-      userId: 'guest',
-      score: 999,
-      bag: [],
-      rack: [],
       idempotencyKey: 'play',
       expectedVersion: 1,
       command: { type: 'play', placements: [{ row: 4, col: 4, tileId: 'A-1' }, { row: 4, col: 5, tileId: 'A-2' }] },
@@ -84,7 +96,7 @@ describe('match action handler', () => {
     const secret = first.used.directory.secret(matchId);
     expect(secret?.bagIds.length).toBeGreaterThan(0);
     expect(JSON.stringify(rejected.body)).not.toContain('A-1');
-    const guest = await call({ op: 'read-match', matchId, userId: 'host' }, 'guest', first.used);
+    const guest = await call({ op: 'read-match', matchId }, 'guest', first.used);
     expect(JSON.stringify(guest.body)).not.toContain('A-1');
     expect(JSON.stringify(guest.body)).toContain('T-1');
   });

@@ -26,7 +26,7 @@ type Room = {
   matchId: string | null;
 };
 
-type LiveMatch = {
+export type LiveMatch = {
   readonly id: string;
   readonly roomId: string;
   state: MatchState;
@@ -39,6 +39,24 @@ type Receipt = {
   readonly command: string;
   readonly result: MatchResult;
 };
+
+export interface MatchDirectory {
+  createRoom(userId: string, displayName: string): Promise<RoomResult>;
+  joinRoom(userId: string, code: string, displayName: string): Promise<RoomResult>;
+  setReady(userId: string, roomId: string): Promise<RoomResult>;
+  startMatch(userId: string, roomId: string): Promise<RoomResult>;
+  cancelRoom(userId: string, roomId: string): Promise<RoomResult>;
+  setPresence(userId: string, roomId: string, connected: boolean): Promise<RoomResult>;
+  readRoom(userId: string, roomId: string): Promise<RoomResult>;
+  readMatch(userId: string, matchId: string): Promise<MatchResult>;
+  act(
+    userId: string,
+    matchId: string,
+    command: MatchCommand,
+    idempotencyKey: string,
+    expectedVersion?: number,
+  ): Promise<MatchResult>;
+}
 
 export type DirectoryOptions = {
   readonly now?: () => string;
@@ -233,59 +251,27 @@ export class MemoryDirectory {
   }
 
   private actNow(userId: string, matchId: string, command: MatchCommand, idempotencyKey: string, expectedVersion?: number): MatchResult {
-    if (!idempotencyKey) return fail('invalid-command', 'An action needs an idempotency key.');
     const match = this.matches.get(matchId);
     if (!match || !match.users.includes(userId)) return fail('not-member', 'You are not in that match.');
     const key = `${matchId}:${idempotencyKey}`;
-    const prior = this.receipts.get(key);
-    const commandText = JSON.stringify(command);
-    if (prior) {
-      if (prior.userId !== userId || prior.command !== commandText) {
-        return fail('duplicate-command', 'That idempotency key was already used.');
+    const decided = decideAct({
+      match,
+      userId,
+      command,
+      idempotencyKey,
+      expectedVersion,
+      prior: this.receipts.get(key) ?? null,
+      random: this.random,
+    });
+    if (decided.storeReceipt) {
+      this.matches.set(matchId, decided.match);
+      this.receipts.set(key, { userId, command: canonicalCommand(command), result: decided.result });
+      if (decided.finished) {
+        const room = this.rooms.get(match.roomId);
+        if (room) room.status = 'finished';
       }
-      return prior.result;
     }
-    if (expectedVersion !== undefined && expectedVersion !== match.state.version) {
-      return fail('stale', 'The match changed. Load it again before retrying.');
-    }
-    const seat = seatOf(match, userId);
-    if (match.state.status !== 'playing') return fail('match-finished', 'The match is over.');
-    if (seat !== match.state.turn) return fail('wrong-seat', 'It is not your turn.');
-
-    const action = this.toEngineAction(match, seat, command);
-    if (!action.ok) return action;
-    const applied = applyMatchAction(match.state, action.action, { dictionary: match.dictionary, random: this.random });
-    if (!applied.ok) {
-      const error = applied.errors[0];
-      const result = fail(error?.code ?? 'rejected', error?.message ?? 'The action was rejected.');
-      if (error?.code === 'dictionary-unavailable') this.receipts.set(key, { userId, command: commandText, result });
-      return result;
-    }
-    match.state = applied.state;
-    const room = this.rooms.get(match.roomId);
-    if (room && applied.state.status === 'finished') room.status = 'finished';
-    const result: MatchResult = { ok: true, match: playerView(match, userId) };
-    this.receipts.set(key, { userId, command: commandText, result });
-    return result;
-  }
-
-  private toEngineAction(match: LiveMatch, seat: Seat, command: MatchCommand): { ok: true; action: Parameters<typeof applyMatchAction>[1] } | OnlineFailure {
-    if (command.type === 'pass') return { ok: true, action: { type: 'pass', seat } };
-    if (command.type === 'resign') return { ok: true, action: { type: 'resign', seat } };
-    if (command.type === 'exchange') return { ok: true, action: { type: 'exchange', seat, tileIds: command.tileIds } };
-    const rack = match.state.players[seat].rack;
-    const placements: TilePlacement[] = [];
-    for (const placement of command.placements) {
-      const tile = rack.find((candidate) => candidate.id === placement.tileId);
-      if (!tile) return fail('tile-not-on-rack', 'That tile is not on your rack.');
-      placements.push({
-        row: placement.row,
-        col: placement.col,
-        tile,
-        ...(tile.letter === null && placement.assignedLetter ? { assignedLetter: placement.assignedLetter } : {}),
-      });
-    }
-    return { ok: true, action: { type: 'play', seat, placements } };
+    return decided.result;
   }
 
   private requireMember(userId: string, roomId: string): { ok: true; room: Room } | OnlineFailure {
@@ -321,12 +307,114 @@ export class MemoryDirectory {
   }
 }
 
+export type StoredReceipt = {
+  readonly userId: string;
+  readonly command: string;
+  readonly result: MatchResult;
+};
+
+export type ActDecision = {
+  readonly result: MatchResult;
+  readonly match: LiveMatch;
+  readonly storeReceipt: boolean;
+  readonly finished: boolean;
+};
+
+export function canonicalCommand(command: MatchCommand): string {
+  if (command.type === 'pass' || command.type === 'resign') return JSON.stringify({ type: command.type });
+  if (command.type === 'exchange') return JSON.stringify({ type: 'exchange', tileIds: [...command.tileIds] });
+  return JSON.stringify({
+    type: 'play',
+    placements: command.placements.map((placement) => ({
+      row: placement.row,
+      col: placement.col,
+      tileId: placement.tileId,
+      ...(placement.assignedLetter ? { assignedLetter: placement.assignedLetter } : {}),
+    })),
+  });
+}
+
+/** One rules path for memory and Postgres. The caller stores the receipt and the next match together. */
+export function decideAct(input: {
+  readonly match: LiveMatch;
+  readonly userId: string;
+  readonly command: MatchCommand;
+  readonly idempotencyKey: string;
+  readonly expectedVersion?: number;
+  readonly prior: StoredReceipt | null;
+  readonly random: RandomSource;
+}): ActDecision {
+  const { match, userId, command, idempotencyKey, expectedVersion, prior, random } = input;
+  const keep = (result: MatchResult): ActDecision => ({ result, match, storeReceipt: false, finished: false });
+  if (!idempotencyKey || idempotencyKey.length > 128) {
+    return keep(fail('invalid-command', 'An action needs an idempotency key.'));
+  }
+  if (!match.users.includes(userId)) return keep(fail('not-member', 'You are not in that match.'));
+  const commandText = canonicalCommand(command);
+  if (prior) {
+    if (prior.userId !== userId || prior.command !== commandText) {
+      return keep(fail('duplicate-command', 'That idempotency key was already used.'));
+    }
+    return keep(prior.result);
+  }
+  if (expectedVersion !== undefined && expectedVersion !== match.state.version) {
+    return keep(fail('stale', 'The match changed. Load it again before retrying.'));
+  }
+  const seat = seatOf(match, userId);
+  if (match.state.status !== 'playing') return keep(fail('match-finished', 'The match is over.'));
+  if (seat !== match.state.turn) return keep(fail('wrong-seat', 'It is not your turn.'));
+
+  const action = toEngineAction(match, seat, command);
+  if (!action.ok) return keep(action);
+  const applied = applyMatchAction(match.state, action.action, { dictionary: match.dictionary, random });
+  if (!applied.ok) {
+    const error = applied.errors[0];
+    const result = fail(error?.code ?? 'rejected', error?.message ?? 'The action was rejected.');
+    return {
+      result,
+      match,
+      storeReceipt: error?.code === 'dictionary-unavailable',
+      finished: false,
+    };
+  }
+  const next: LiveMatch = { ...match, state: applied.state };
+  return {
+    result: { ok: true, match: playerView(next, userId) },
+    match: next,
+    storeReceipt: true,
+    finished: applied.state.status === 'finished',
+  };
+}
+
+function toEngineAction(
+  match: LiveMatch,
+  seat: Seat,
+  command: MatchCommand,
+): { ok: true; action: Parameters<typeof applyMatchAction>[1] } | OnlineFailure {
+  if (command.type === 'pass') return { ok: true, action: { type: 'pass', seat } };
+  if (command.type === 'resign') return { ok: true, action: { type: 'resign', seat } };
+  if (command.type === 'exchange') return { ok: true, action: { type: 'exchange', seat, tileIds: command.tileIds } };
+  const rack = match.state.players[seat].rack;
+  const placements: TilePlacement[] = [];
+  for (const placement of command.placements) {
+    const tile = rack.find((candidate) => candidate.id === placement.tileId);
+    if (!tile) return fail('tile-not-on-rack', 'That tile is not on your rack.');
+    placements.push({
+      row: placement.row,
+      col: placement.col,
+      tile,
+      ...(tile.letter === null && placement.assignedLetter ? { assignedLetter: placement.assignedLetter } : {}),
+    });
+  }
+  return { ok: true, action: { type: 'play', seat, placements } };
+}
+
 export function publicMatch(match: PlayerMatch): PublicMatch {
   const { rack: _rack, yourSeat: _seat, ...rest } = match;
   return rest;
 }
 
-function playerView(match: LiveMatch, userId: string): PlayerMatch {
+export function playerView(match: LiveMatch, userId: string): PlayerMatch {
   const seat = seatOf(match, userId);
   const [left, right] = match.state.players;
   return {

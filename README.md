@@ -1,6 +1,6 @@
 # Word Arena
 
-Phase 1 is the UI foundation. Phase 2 is `@word-arena/engine`. Phase 3 plays a local two-player match. Phase 4 adds private online rooms. No dictionary is configured, so a scored move cannot be submitted. The browser uses only a Supabase publishable key, and no remote database migration has been applied.
+Phase 1 is the UI foundation. Phase 2 is `@word-arena/engine`. Phase 3 plays a local two-player match. Phase 4 adds private online rooms. Phase 4.1 stores match actions in Postgres, with the receipt in the same transaction, and uses the letter dialog for a blank tile. No dictionary is configured, so a scored move cannot be submitted. The browser uses only a Supabase publishable key. The match function is not deployed, and no remote database migration has been applied.
 
 ## Scripts
 
