@@ -125,7 +125,10 @@ function assertDisposable(url: string): void {
   if (parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1' && parsed.hostname !== '::1') {
     throw new Error('The Deno entry test only runs against localhost.');
   }
-  if (!parsed.pathname.includes('word_arena')) throw new Error('The Deno entry test only uses a word_arena database.');
+  const database = decodeURIComponent(parsed.pathname).replace(/^\/+|\/+$/g, '');
+  if (database !== 'word_arena_verify') {
+    throw new Error('The Deno entry test only uses the word_arena_verify database.');
+  }
 }
 
 async function applySchema(sql: ReturnType<typeof postgres>): Promise<void> {

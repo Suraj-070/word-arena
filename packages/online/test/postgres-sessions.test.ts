@@ -22,8 +22,9 @@ function assertDisposable(url: string): void {
   if (host !== 'localhost' && host !== '127.0.0.1' && host !== '::1') {
     throw new Error('The independent-connection test only runs against localhost.');
   }
-  if (!parsed.pathname.includes('word_arena')) {
-    throw new Error('The independent-connection test only uses a word_arena database.');
+  const database = decodeURIComponent(parsed.pathname).replace(/^\/+|\/+$/g, '');
+  if (database !== 'word_arena_verify') {
+    throw new Error('The independent-connection test only uses the word_arena_verify database.');
   }
 }
 
