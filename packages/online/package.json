@@ -17,6 +17,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.14",
     "@types/node": "^26.6.6",
+    "postgres": "3.4.7",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   }

@@ -29,8 +29,8 @@ export function pgliteDatabase(db: {
 }
 
 type PostgresJs = {
-  begin<T>(fn: (tx: PostgresJs) => Promise<T>): Promise<T>;
-  unsafe(query: string, parameters: unknown[]): Promise<Record<string, unknown>[]>;
+  begin<T>(fn: (tx: PostgresJs) => Promise<T> | T): Promise<T>;
+  unsafe(query: string, parameters?: readonly unknown[]): PromiseLike<readonly Record<string, unknown>[]>;
 };
 
 /** Adapts the `postgres` driver used by the Edge Function. The package does not import that driver. */
@@ -40,8 +40,8 @@ export function fromPostgresJs(sql: PostgresJs): SqlDatabase {
       return sql.begin((tx) =>
         fn({
           query: async <T = Record<string, unknown>>(text: string, params: readonly unknown[] = []) => {
-            const rows = await tx.unsafe(text, [...params]);
-            return { rows: rows as T[] };
+            const rows = await tx.unsafe(text, params);
+            return { rows: [...rows] as T[] };
           },
         }),
       );

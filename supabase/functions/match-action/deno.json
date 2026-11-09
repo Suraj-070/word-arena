@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@word-arena/engine": "../../../packages/engine/src/index.ts"
+  },
+  "unstable": ["sloppy-imports"]
+}
