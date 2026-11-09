@@ -48,6 +48,7 @@ export type PublicMatch = {
     readonly score: ScoreBreakdown | null;
   } | null;
   readonly dictionaryAvailable: boolean;
+  readonly dictionaryVersionId: string;
   readonly exchangeAllowed: boolean;
   readonly bonuses: readonly BonusSquare[];
   readonly centerWordMultiplier: number;

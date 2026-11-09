@@ -19,6 +19,7 @@ const ALLOWED_FIELDS = new Set([
   'command',
   'idempotencyKey',
   'expectedVersion',
+  'dictionaryVersionId',
   'scoringMode',
 ]);
 
@@ -31,6 +32,7 @@ type Body = {
   readonly command?: MatchCommand;
   readonly idempotencyKey?: string;
   readonly expectedVersion?: number;
+  readonly dictionaryVersionId?: string;
   readonly scoringMode?: string;
 };
 
@@ -65,6 +67,7 @@ function bodyError(value: unknown): string | null {
   if (body.idempotencyKey !== undefined && typeof body.idempotencyKey !== 'string') return 'That field is not accepted.';
   if (body.connected !== undefined && typeof body.connected !== 'boolean') return 'That field is not accepted.';
   if (body.command !== undefined && !cleanCommand(body.command)) return 'The action is not valid.';
+  if (body.dictionaryVersionId !== undefined && typeof body.dictionaryVersionId !== 'string') return 'That field is not accepted.';
   if (body.scoringMode !== undefined && body.scoringMode !== 'classic' && body.scoringMode !== 'wild') {
     return 'That scoring mode is not available.';
   }
@@ -106,6 +109,7 @@ async function dispatch(directory: MatchDirectory, userId: string, displayName: 
       return directory.startMatch(
         userId,
         body.roomId ?? '',
+        body.dictionaryVersionId,
         body.scoringMode === 'wild' ? 'wild' : body.scoringMode === 'classic' ? 'classic' : undefined,
       );
     case 'cancel-room':

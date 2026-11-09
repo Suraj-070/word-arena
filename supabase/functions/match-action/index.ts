@@ -1,3 +1,4 @@
+import { sharedDictionaries } from '@word-arena/engine';
 import { createEdgeHandler, type EdgeEnv } from '../../../packages/online/src/edge.ts';
 import { fromPostgresJs } from '../../../packages/online/src/sql.ts';
 
@@ -11,4 +12,4 @@ const env: EdgeEnv = {
   publishableKey: Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY') ?? '',
 };
 
-Deno.serve(createEdgeHandler(env, database));
+Deno.serve(createEdgeHandler(env, database, { dictionaries: sharedDictionaries() }));

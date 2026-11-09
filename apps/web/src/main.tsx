@@ -9,6 +9,7 @@ import './styles/tokens.css';
 import './styles/shell.css';
 import './styles/board.css';
 import './styles/online.css';
+import './styles/profile.css';
 
 const root = document.getElementById('root');
 if (!root) {

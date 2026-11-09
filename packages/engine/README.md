@@ -14,7 +14,7 @@ Import from `@word-arena/engine`.
 - `validatePlay` — placement, dictionary check, and score.
 - `createMatch`, `dealMatch`, `applyMatchAction` — a two-player match. Shuffle is an argument. The package does not call `Math.random`.
 - `scoreFormedWords`, `bingoAward`, `bonusAt` — scoring without a move.
-- `normalisePlayWord`, `createMemoryDictionary`, `DICTIONARY_PRESETS` — dictionary boundary.
+- `normalisePlayWord`, `createMemoryDictionary`, `dictionaryForPreset`, `sharedDictionaries`, `DICTIONARY_PRESETS` — dictionary boundary.
 
 `validateRules` and `validatePlay` return `{ ok: true, ... }` or `{ ok: false, errors }`. They do not change their inputs. `applyPlay` copies the board and accepts only a play that `validatePlay` already accepted.
 
@@ -32,7 +32,7 @@ The centre of an odd board is `((size - 1) / 2, (size - 1) / 2)`. Arena Standard
 
 `passRoundLimit` and `exchangeAllowed` are stored and not acted on.
 
-Dictionary preset ids name the proposed ESDB `rel-2026.02.25` lists for Australian (`D`), American (`A`), and British `-ise` (`B`), size 60, variant level 1. Oxford `-ize` (`Z`) is not accepted. No word list is included, and licensing is not approved.
+The shipped lexicon is ESDB `rel-2026.02.25`, commit `7e99edab8e32f9f9ea2b15f249ca8d4d67237410`, size 60, variant level 1. Presets are Australian (`D`, the default), British `-ise` (`B`), Oxford `-ize` (`Z`), American (`A`), and Canadian (`C`). `Z` and `C` are not licence-cleared. Notices are in `dictionary/NOTICE.md`. Lookup is local. A missing provider still rejects a scored play.
 
 ## Dictionary providers
 
@@ -56,4 +56,4 @@ pnpm --filter @word-arena/engine typecheck
 
 ## Not implemented
 
-There is no real dictionary artifact and no network lookup. A play is rejected when the caller does not pass a dictionary. Pass ends the match after `passRoundLimit` full rounds of consecutive passes. Exchange shuffles returned tiles with the caller’s random function.
+`src/lexicon-data.ts` is the generated word list. Play does not fetch it. A play is rejected when the caller does not pass a dictionary, or when the provider's version does not match the match. Pass ends the match after `passRoundLimit` full rounds of consecutive passes. Exchange shuffles returned tiles with the caller’s random function.

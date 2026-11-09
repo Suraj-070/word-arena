@@ -99,10 +99,17 @@ describe('validateRules', () => {
     if (!shared.ok) expect(shared.errors.some((issue) => issue.message.includes('same square'))).toBe(true);
   });
 
-  it('rejects a dictionary id that has not been accepted', () => {
+  it('accepts each shipped preset and rejects an unknown id', () => {
+    for (const preset of DICTIONARY_PRESETS) {
+      const result = validateRules({
+        ...arenaStandardDefinition(),
+        dictionaryVersionId: preset.id,
+      });
+      expect(result.ok, preset.id).toBe(true);
+    }
     const result = validateRules({
       ...arenaStandardDefinition(),
-      dictionaryVersionId: 'esdb-rel-2026.02.25-Z-60-v1',
+      dictionaryVersionId: 'esdb-rel-2026.02.25-X-60-v1',
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors.some((issue) => issue.code === 'dictionary')).toBe(true);

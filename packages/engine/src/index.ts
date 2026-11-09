@@ -12,14 +12,19 @@ export {
   DEFAULT_DICTIONARY_PRESET_ID,
   DICTIONARY_PRESETS,
   createMemoryDictionary,
+  dictionaryForPreset,
+  dictionaryPreset,
   isDictionaryPresetId,
   normalisePlayWord,
+  sharedDictionaries,
+  sharedLexicon,
 } from './dictionary';
 export { LETTERS, isLetter } from './letters';
 export { applyMatchAction, arrangeRack, createMatch, createTileBag, dealMatch, renamePlayer, shuffleTiles } from './match';
 export { validatePlay } from './placement';
+export { DICTIONARY_NOTICE } from './notice';
 export { ARENA_BONUS_LAYOUT } from './bonus-layout';
-export { arenaStandardDefinition, arenaStandardRules, rulesWithScoringMode } from './presets';
+export { arenaStandardDefinition, arenaStandardRules, rulesWithDictionary, rulesWithScoringMode } from './presets';
 export { pointsFor, tileTotal, validateRules } from './rules';
 export { bingoAward, bonusAt, scoreFormedWords } from './scoring';
 

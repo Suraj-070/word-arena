@@ -211,6 +211,23 @@ describe('postgres match directory', () => {
     const room = await plain.readRoom(HOST, roomId);
     if (!room.ok) throw new Error(room.message);
     expect(room.room.status).toBe('finished');
+    const recorded = await db.query<{ user_id: string; result: string; score: number; end_kind: string }>(
+      'select user_id, result, score, end_kind from public.match_results where match_id = $1 order by seat',
+      [matchId],
+    );
+    const publishedScores = await db.query<{ score_0: number; score_1: number }>(
+      'select score_0, score_1 from public.matches where id = $1',
+      [matchId],
+    );
+    expect(recorded.rows.map((entry) => entry.user_id)).toEqual([HOST, GUEST]);
+    expect(recorded.rows.map((entry) => entry.result)).toEqual(['win', 'loss']);
+    expect(recorded.rows.map((entry) => entry.end_kind)).toEqual(['resign', 'resign']);
+    expect(recorded.rows[0]?.score).toBe(publishedScores.rows[0]?.score_0);
+    expect(recorded.rows[1]?.score).toBe(publishedScores.rows[0]?.score_1);
+    const repeated = await plain.act(GUEST, matchId, { type: 'resign' }, 'resign-again', resigned.match.version);
+    expect(repeated.ok).toBe(false);
+    const stillTwo = await db.query<{ count: string }>('select count(*)::text as count from public.match_results where match_id = $1', [matchId]);
+    expect(Number(stillTwo.rows[0]?.count)).toBe(2);
 
     const scoredDb = await readyDatabase();
     const rules = smallRules();

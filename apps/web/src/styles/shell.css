@@ -59,8 +59,11 @@
 .nav {
   display: flex;
   align-items: center;
-  flex: none;
+  flex: 1 1 auto;
+  min-width: 0;
   margin-inline-start: var(--space-xs);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .nav-link {
@@ -132,6 +135,17 @@
 .table:focus-visible {
   outline: 2px solid var(--wa-focus-on-felt);
   outline-offset: -4px;
+}
+
+@media (max-width: 767px) {
+  .wordmark {
+    max-width: 4.5rem;
+    font-size: 1.05rem;
+  }
+
+  .nav-link {
+    padding-inline: 6px;
+  }
 }
 
 @media (min-width: 768px) {

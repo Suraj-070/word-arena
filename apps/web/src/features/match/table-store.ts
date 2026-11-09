@@ -3,9 +3,12 @@ import {
   arrangeRack,
   createMatch,
   dealMatch,
+  dictionaryForPreset,
   inBounds,
+  isDictionaryPresetId,
   readCell,
   renamePlayer,
+  rulesWithDictionary,
   rulesWithScoringMode,
   validatePlay,
   arenaStandardRules,
@@ -19,6 +22,7 @@ import {
   type TilePlacement,
 } from '@word-arena/engine';
 import { create } from 'zustand';
+import { readDictionaryPreference, writeDictionaryPreference } from './dictionary-preference';
 
 export type DraftPlacement = {
   readonly tileId: string;
@@ -36,6 +40,7 @@ export type PendingBlank = {
 type TableState = {
   match: MatchState;
   dictionary: DictionaryProvider | null;
+  preferenceId: string;
   random: RandomSource;
   selected: readonly string[];
   draft: readonly DraftPlacement[];
@@ -55,17 +60,29 @@ type TableState = {
   exchange: () => void;
   resign: () => void;
   rename: (seat: Seat, name: string) => void;
+  setPreference: (versionId: string) => void;
   scoringMode: 'classic' | 'wild';
   setScoringMode: (mode: 'classic' | 'wild') => void;
   newMatch: () => void;
 };
 
-const rules = arenaStandardRules();
-const openingRules = rulesWithScoringMode(rules, 'classic');
+function matchFor(
+  versionId: string,
+  random: RandomSource,
+  mode?: 'classic' | 'wild',
+): { match: MatchState; dictionary: DictionaryProvider | null } {
+  const base = rulesWithDictionary(arenaStandardRules(), versionId);
+  const rules = mode ? rulesWithScoringMode(base, mode) : base;
+  return { match: createMatch({ rules, random }), dictionary: dictionaryForPreset(versionId) };
+}
+
+const openingPreference = readDictionaryPreference();
+const opening = matchFor(openingPreference, liveRandom(), 'classic');
 
 export const useTableStore = create<TableState>((set, get) => ({
-  match: createMatch({ rules: openingRules, random: liveRandom() }),
-  dictionary: null,
+  match: opening.match,
+  dictionary: opening.dictionary,
+  preferenceId: openingPreference,
   scoringMode: 'classic',
   random: liveRandom(),
   selected: [],
@@ -220,15 +237,18 @@ export const useTableStore = create<TableState>((set, get) => ({
     }
     set({ match: result.state, notice: '' });
   },
+  setPreference: (versionId) => {
+    if (!isDictionaryPresetId(versionId)) return;
+    writeDictionaryPreference(versionId);
+    set({ preferenceId: versionId });
+  },
   setScoringMode: (mode) => set({ scoringMode: mode }),
   newMatch: () => {
-    const next = createMatch({
-      rules: rulesWithScoringMode(arenaStandardRules(), get().scoringMode),
-      random: liveRandom(),
-    });
+    const versionId = get().preferenceId;
+    const next = matchFor(versionId, liveRandom(), get().scoringMode);
     set({
-      match: next,
-      dictionary: null,
+      match: next.match,
+      dictionary: next.dictionary,
       selected: [],
       draft: [],
       pendingBlank: null,
@@ -250,10 +270,12 @@ export function placementPreview(match: MatchState, draft: readonly DraftPlaceme
   });
 }
 
-export function resetTable(match = createMatch({ rules, random: () => 0 }), dictionary: DictionaryProvider | null = null): void {
+export function resetTable(match?: MatchState, dictionary?: DictionaryProvider | null): void {
+  const next = match ?? createMatch({ rules: arenaStandardRules(), random: () => 0 });
   useTableStore.setState({
-    match,
-    dictionary,
+    match: next,
+    dictionary: dictionary === undefined ? dictionaryForPreset(next.rules.dictionaryVersionId) : dictionary,
+    preferenceId: readDictionaryPreference(),
     random: () => 0,
     selected: [],
     draft: [],

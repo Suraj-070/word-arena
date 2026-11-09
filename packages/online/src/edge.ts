@@ -1,3 +1,4 @@
+import type { DictionaryProvider } from '@word-arena/engine';
 import { cleanDisplayName } from './codes';
 import { handleMatchRequest, type VerifiedUser } from './handler';
 import { PostgresDirectory } from './postgres-directory';
@@ -11,6 +12,7 @@ export type EdgeEnv = {
 export type EdgeHandlerOptions = {
   readonly verify?: (token: string) => Promise<VerifiedUser | null>;
   readonly fetch?: typeof fetch;
+  readonly dictionaries?: ReadonlyMap<string, DictionaryProvider>;
 };
 
 const CORS = {
@@ -23,7 +25,8 @@ const CORS = {
 /**
  * HTTP entry for the match function.
  * The directory is always Postgres-backed. A missing database returns unavailable
- * rather than serving an in-memory match. The dictionary stays null.
+ * rather than serving an in-memory match. Without a dictionary catalog the
+ * directory stays null and scored plays are refused.
  */
 export function createEdgeHandler(env: EdgeEnv, database: SqlDatabase | null, options: EdgeHandlerOptions = {}) {
   const verify = options.verify ?? ((token: string) => verifySupabaseUser(env, token, options.fetch));
@@ -33,7 +36,9 @@ export function createEdgeHandler(env: EdgeEnv, database: SqlDatabase | null, op
     if (!database) {
       return json({ ok: false, code: 'unavailable', message: 'Online play is not connected to a database.' }, 503);
     }
-    const directory = new PostgresDirectory(database, { dictionary: null });
+    const directory = new PostgresDirectory(database, options.dictionaries
+      ? { dictionaries: options.dictionaries }
+      : { dictionary: null });
     try {
       let emailName = 'Player';
       const response = await handleMatchRequest(request, {

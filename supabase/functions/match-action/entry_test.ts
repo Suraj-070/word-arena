@@ -1,3 +1,4 @@
+import { DEFAULT_DICTIONARY_PRESET_ID, sharedDictionaries } from '@word-arena/engine';
 import postgres from 'npm:postgres@3.4.7';
 import { createEdgeHandler } from '../../../packages/online/src/edge.ts';
 import { fromPostgresJs } from '../../../packages/online/src/sql.ts';
@@ -22,7 +23,8 @@ Deno.test('the entry uses the postgres handler and does not mention a browser se
   if (!source.includes('fromPostgresJs')) throw new Error('The entry does not adapt a Postgres connection.');
   if (source.includes('MemoryDirectory')) throw new Error('The entry references the in-memory directory.');
   if (!edge.includes('new PostgresDirectory')) throw new Error('The handler is not backed by Postgres.');
-  if (!edge.includes('dictionary: null')) throw new Error('The handler does not force a null dictionary.');
+  if (!source.includes('sharedDictionaries')) throw new Error('The entry does not load the shared lexicon.');
+  if (!edge.includes('dictionaries')) throw new Error('The handler cannot receive the shared lexicon.');
   if (source.includes('service_role') || source.includes('sb_secret_') || source.includes('postgres://')) {
     throw new Error('The entry contains a credential.');
   }
@@ -61,7 +63,7 @@ Deno.test('the running entry rejects a missing database and a bad session', asyn
 });
 
 Deno.test({
-  name: 'the handler started by the entry keeps the dictionary null',
+  name: 'the handler started by the entry declares the shared preset and ignores a forged score',
   ignore: !databaseUrl,
   async fn() {
     assertDisposable(databaseUrl);
@@ -69,6 +71,7 @@ Deno.test({
     try {
       await applySchema(sql);
       const handler = createEdgeHandler({}, fromPostgresJs(sql), {
+        dictionaries: sharedDictionaries(),
         verify: (token) => {
           if (token === 'ada') return Promise.resolve({ id: HOST, email: 'ada@example.com' });
           if (token === 'bea') return Promise.resolve({ id: GUEST, email: 'bea@example.com' });
@@ -87,28 +90,53 @@ Deno.test({
       if (started.status !== 200 || !matchId) throw new Error('The match did not start.');
       const loaded = await handler(jsonRequest({ op: 'read-match', matchId }, 'ada'));
       const match = (await loaded.json()).match;
-      if (match.dictionaryAvailable !== false) throw new Error('The dictionary was available.');
+      if (match.dictionaryAvailable !== true) throw new Error('The shared dictionary was not available.');
+      if (match.dictionaryVersionId !== DEFAULT_DICTIONARY_PRESET_ID) {
+        throw new Error(`The match did not declare ${DEFAULT_DICTIONARY_PRESET_ID}.`);
+      }
+      const forged = await handler(jsonRequest({
+        op: 'act',
+        matchId,
+        idempotencyKey: 'forged-score',
+        expectedVersion: match.version,
+        score: 99,
+        valid: true,
+        dictionaryVersionId: 'esdb-rel-2026.02.25-A-60-v1',
+        command: { type: 'pass' },
+      }, 'ada'));
+      const forgedBody = await forged.json();
+      if (forged.status !== 400) throw new Error(`Expected the forged score to be rejected, received ${forged.status}.`);
+      if (JSON.stringify(forgedBody).includes('99')) throw new Error('The response echoed a forged score.');
       const played = await handler(jsonRequest({
         op: 'act',
         matchId,
-        idempotencyKey: 'scored-play',
+        idempotencyKey: 'missing-tile',
         expectedVersion: match.version,
-        command: {
-          type: 'play',
-          placements: match.rack.map((tile: { id: string; letter: string | null }, index: number) => ({
-            row: 7,
-            col: 7 + index,
-            tileId: tile.id,
-            ...(tile.letter === null ? { assignedLetter: 'A' } : {}),
-          })),
-        },
+        command: { type: 'play', placements: [{ row: 7, col: 7, tileId: 'not-on-the-rack' }] },
       }, 'ada'));
       const playBody = await played.json();
-      if (played.status !== 422 || playBody.code !== 'dictionary-unavailable') {
-        throw new Error(`Expected an unscored play, received ${played.status}: ${JSON.stringify(playBody)}`);
+      if (played.status !== 400 || playBody.code !== 'tile-not-on-rack') {
+        throw new Error(`Expected the server to reject the tile, received ${played.status}: ${JSON.stringify(playBody)}`);
       }
       const stored = await sql.unsafe('select version from public.matches where id = $1', [matchId]);
       if (Number(stored[0]?.version) !== 1) throw new Error('The rejected play changed the match version.');
+      const passed = await handler(jsonRequest({
+        op: 'act',
+        matchId,
+        idempotencyKey: 'pass-with-preference',
+        expectedVersion: 1,
+        dictionaryVersionId: 'esdb-rel-2026.02.25-A-60-v1',
+        command: { type: 'pass' },
+      }, 'ada'));
+      const passedBody = await passed.json();
+      if (passed.status !== 200 || passedBody.match?.dictionaryVersionId !== DEFAULT_DICTIONARY_PRESET_ID) {
+        throw new Error('A personal preset on an action changed the match.');
+      }
+      const guestPreset = await handler(jsonRequest({ op: 'read-match', matchId }, 'bea'));
+      const guestPresetBody = await guestPreset.json();
+      if (guestPresetBody.match?.dictionaryVersionId !== DEFAULT_DICTIONARY_PRESET_ID) {
+        throw new Error('The guest does not share the match preset.');
+      }
       const guest = await handler(jsonRequest({ op: 'read-match', matchId }, 'bea'));
       const guestBody = JSON.stringify(await guest.json());
       for (const tile of match.rack as { id: string }[]) {

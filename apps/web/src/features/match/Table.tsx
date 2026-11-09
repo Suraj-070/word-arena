@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
-import { readCell, type DictionaryProvider, type PlayResult } from '@word-arena/engine';
+import { DICTIONARY_NOTICE, DICTIONARY_PRESETS, dictionaryPreset, readCell, type DictionaryProvider, type PlayResult } from '@word-arena/engine';
 import { BlankLetterDialog } from '../board/BlankLetterDialog';
 import { Board, type BoardFace } from '../board/Board';
 import { BoardScroll } from '../board/BoardScroll';
@@ -45,11 +45,14 @@ export function Table() {
   const exchange = useTableStore((state) => state.exchange);
   const resign = useTableStore((state) => state.resign);
   const rename = useTableStore((state) => state.rename);
+  const preferenceId = useTableStore((state) => state.preferenceId);
+  const setPreference = useTableStore((state) => state.setPreference);
   const scoringMode = useTableStore((state) => state.scoringMode);
   const setScoringMode = useTableStore((state) => state.setScoringMode);
   const newMatch = useTableStore((state) => state.newMatch);
   const [effects, setEffects] = useState<ReadonlyMap<string, SquareEffect>>(new Map());
   const fresh = useFreshPlacements(match.version, match.last?.kind === 'play' ? match.last.score : null);
+  const preset = dictionaryPreset(match.rules.dictionaryVersionId);
 
   const drag = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null);
   const ignoreClick = useRef(false);
@@ -168,6 +171,7 @@ export function Table() {
             <span className="player-turn" data-active={!finished && seat === 1 ? 'true' : 'false'}>{match.players[1].name} <Count value={match.players[1].score} /></span>
           </span>
           <span>{match.bag.length} in the bag</span>
+          <span>{preset?.label ?? 'Dictionary'}</span>
         </p>
         <p className="match-message" aria-live="polite">
           {statusMessage(notice, preview, dictionary)}
@@ -219,6 +223,14 @@ export function Table() {
             </select>
           </label>
           <p className="mode-note">{nextMatchCopy()} {scoringCopy(scoringMode)}</p>
+          <label className="dictionary-choice">
+            Next match
+            <select aria-label="Dictionary for the next match" value={preferenceId} onChange={(event) => setPreference(event.target.value)}>
+              {DICTIONARY_PRESETS.map((item) => (
+                <option key={item.id} value={item.id}>{item.label}</option>
+              ))}
+            </select>
+          </label>
           <button type="button" className="match-action" onClick={newMatch}>New match</button>
         </div>
         <PlayFeedback
@@ -232,6 +244,10 @@ export function Table() {
           mode={activeMode}
           onEffects={setEffects}
         />
+        <details className="match-notices">
+          <summary>Dictionary notices</summary>
+          <pre>{DICTIONARY_NOTICE}</pre>
+        </details>
       </section>
       <Rack
         label={`${player.name} rack, ${rackTiles.length} tiles`}

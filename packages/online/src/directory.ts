@@ -2,6 +2,8 @@ import {
   applyMatchAction,
   createMatch,
   arenaStandardRules,
+  isDictionaryPresetId,
+  rulesWithDictionary,
   rulesWithScoringMode,
   type DictionaryProvider,
   type MatchState,
@@ -46,7 +48,7 @@ export interface MatchDirectory {
   createRoom(userId: string, displayName: string): Promise<RoomResult>;
   joinRoom(userId: string, code: string, displayName: string): Promise<RoomResult>;
   setReady(userId: string, roomId: string): Promise<RoomResult>;
-  startMatch(userId: string, roomId: string, scoringMode?: TileUpgrade): Promise<RoomResult>;
+  startMatch(userId: string, roomId: string, dictionaryVersionId?: string, scoringMode?: TileUpgrade): Promise<RoomResult>;
   cancelRoom(userId: string, roomId: string): Promise<RoomResult>;
   setPresence(userId: string, roomId: string, connected: boolean): Promise<RoomResult>;
   readRoom(userId: string, roomId: string): Promise<RoomResult>;
@@ -65,6 +67,8 @@ export type DirectoryOptions = {
   readonly random?: RandomSource;
   readonly ids?: () => string;
   readonly dictionary?: DictionaryProvider | null;
+  /** Preset id to provider. When set, a match uses the provider for its own preset. */
+  readonly dictionaries?: ReadonlyMap<string, DictionaryProvider>;
   readonly rules?: Rules;
   readonly ttlMs?: number;
 };
@@ -79,6 +83,7 @@ export class MemoryDirectory {
   private readonly random: RandomSource;
   private readonly ids: () => string;
   private readonly dictionary: DictionaryProvider | null;
+  private readonly dictionaries: ReadonlyMap<string, DictionaryProvider> | null;
   private readonly rules: Rules;
   private readonly ttlMs: number;
   private queue: Promise<void> = Promise.resolve();
@@ -88,6 +93,7 @@ export class MemoryDirectory {
     this.random = options.random ?? cryptoRandom;
     this.ids = options.ids ?? (() => globalThis.crypto.randomUUID());
     this.dictionary = options.dictionary ?? null;
+    this.dictionaries = options.dictionaries ?? null;
     this.rules = options.rules ?? arenaStandardRules();
     this.ttlMs = options.ttlMs ?? ROOM_TTL_MS;
   }
@@ -104,8 +110,8 @@ export class MemoryDirectory {
     return this.enqueue(() => this.setReadyNow(userId, roomId));
   }
 
-  startMatch(userId: string, roomId: string, scoringMode?: TileUpgrade): Promise<RoomResult> {
-    return this.enqueue(() => this.startMatchNow(userId, roomId, scoringMode));
+  startMatch(userId: string, roomId: string, dictionaryVersionId?: string, scoringMode?: TileUpgrade): Promise<RoomResult> {
+    return this.enqueue(() => this.startMatchNow(userId, roomId, dictionaryVersionId, scoringMode));
   }
 
   cancelRoom(userId: string, roomId: string): Promise<RoomResult> {
@@ -190,7 +196,7 @@ export class MemoryDirectory {
     return { ok: true, room: this.roomView(room.room, userId) };
   }
 
-  private startMatchNow(userId: string, roomId: string, scoringMode?: TileUpgrade): RoomResult {
+  private startMatchNow(userId: string, roomId: string, dictionaryVersionId?: string, scoringMode?: TileUpgrade): RoomResult {
     const room = this.requireMember(userId, roomId);
     if (!room.ok) return room;
     if (room.room.hostId !== userId) return fail('not-host', 'Only the host can start the match.');
@@ -201,7 +207,7 @@ export class MemoryDirectory {
     const host = seated[0];
     const guest = seated[1];
     if (!host || !guest) return fail('not-ready', 'Both players need to be ready before the match starts.');
-    const rules = rulesForMatch(this.rules, scoringMode);
+    const rules = rulesForMatch(this.rules, dictionaryVersionId, scoringMode);
     if ('ok' in rules) return rules;
     const state = createMatch({
       rules,
@@ -214,7 +220,7 @@ export class MemoryDirectory {
       roomId,
       state,
       users: [host.userId, guest.userId],
-      dictionary: this.dictionary,
+      dictionary: dictionaryForMatch(this.dictionaries, this.dictionary, state),
     });
     room.room.status = 'playing';
     room.room.matchId = id;
@@ -370,7 +376,7 @@ export function decideAct(input: {
 
   const action = toEngineAction(match, seat, command);
   if (!action.ok) return keep(action);
-  const applied = applyMatchAction(match.state, action.action, { dictionary: match.dictionary, random });
+  const applied = applyMatchAction(match.state, action.action, { dictionary: dictionaryOnMatch(match), random });
   if (!applied.ok) {
     const error = applied.errors[0];
     const result = fail(error?.code ?? 'rejected', error?.message ?? 'The action was rejected.');
@@ -442,7 +448,8 @@ export function playerView(match: LiveMatch, userId: string): PlayerMatch {
           score: match.state.last.score,
         }
       : null,
-    dictionaryAvailable: match.dictionary !== null,
+    dictionaryAvailable: dictionaryOnMatch(match) !== null,
+    dictionaryVersionId: match.state.rules.dictionaryVersionId,
     exchangeAllowed: match.state.rules.exchangeAllowed,
     bonuses: match.state.rules.bonuses,
     centerWordMultiplier: match.state.rules.centerWordMultiplier,
@@ -460,12 +467,43 @@ function member(roomId: string, userId: string, seat: Seat, displayName: string)
   return { roomId, userId, seat, ready: false, connected: true, displayName };
 }
 
-export function rulesForMatch(base: Rules, scoringMode?: TileUpgrade): Rules | OnlineFailure {
+export function rulesForMatch(
+  base: Rules,
+  dictionaryVersionId: string | undefined,
+  scoringMode?: TileUpgrade,
+): Rules | OnlineFailure {
   if (scoringMode !== undefined && scoringMode !== 'classic' && scoringMode !== 'wild') {
     return fail('invalid-command', 'That scoring mode is not available.');
   }
-  if (!scoringMode) return base;
-  return rulesWithScoringMode(base, scoringMode);
+  const withDictionary = dictionaryVersionId === undefined || dictionaryVersionId === base.dictionaryVersionId
+    ? base
+    : isDictionaryPresetId(dictionaryVersionId)
+      ? rulesWithDictionary(base, dictionaryVersionId)
+      : fail('invalid-command', 'That dictionary preset is not available.');
+  if ('ok' in withDictionary) return withDictionary;
+  if (!scoringMode) return withDictionary;
+  return rulesWithScoringMode(withDictionary, scoringMode);
+}
+
+export function dictionaryForMatch(
+  dictionaries: ReadonlyMap<string, DictionaryProvider> | null,
+  fallback: DictionaryProvider | null,
+  state: MatchState,
+): DictionaryProvider | null {
+  const versionId = state.rules.dictionaryVersionId;
+  if (dictionaries) {
+    const found = dictionaries.get(versionId) ?? null;
+    return found && found.versionId === versionId ? found : null;
+  }
+  if (fallback && fallback.versionId !== versionId) return null;
+  return fallback;
+}
+
+/** The provider stored on the match counts only when it is the match's preset. */
+export function dictionaryOnMatch(match: LiveMatch): DictionaryProvider | null {
+  const dictionary = match.dictionary;
+  if (!dictionary || dictionary.versionId !== match.state.rules.dictionaryVersionId) return null;
+  return dictionary;
 }
 
 function fail(code: string, message: string): OnlineFailure {

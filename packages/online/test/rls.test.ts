@@ -87,4 +87,43 @@ describe('row level security on embedded Postgres', () => {
     expect(score.rows[0]?.score_0).toBe(0);
     await db.close();
   });
+
+  it('lets a player read only their own result and blocks a client write', async () => {
+    const db = await database();
+    await db.exec(`
+      insert into public.match_results (
+        match_id, user_id, opponent_id, seat, score, opponent_score, result, end_kind, finished_at
+      ) values
+        ('${MATCH}', '${HOST}', '${GUEST}', 0, 12, 4, 'win', 'passes', now()),
+        ('${MATCH}', '${GUEST}', '${HOST}', 1, 4, 12, 'loss', 'passes', now());
+    `);
+    const host = await asUser(db, HOST, 'select result, score from public.match_results order by seat');
+    expect(host.rows).toEqual([{ result: 'win', score: 12 }]);
+    const guest = await asUser(db, GUEST, 'select result from public.match_results');
+    expect(guest.rows).toEqual([{ result: 'loss' }]);
+    const stranger = await asUser(db, OTHER, 'select match_id from public.match_results');
+    expect(stranger.rows).toHaveLength(0);
+    await expect(asUser(
+      db,
+      HOST,
+      `insert into public.match_results (
+         match_id, user_id, opponent_id, seat, score, opponent_score, result, end_kind, finished_at
+       ) values ('${MATCH}', '${HOST}', '${GUEST}', 0, 99, 0, 'win', 'resign', now())`,
+    )).rejects.toThrow(/permission denied/);
+    await expect(asUser(db, HOST, `update public.match_results set score = 99 where user_id = '${HOST}'`)).rejects.toThrow(/permission denied/);
+    const record = await asUser(db, HOST, 'select wins, highest_score from public.my_record()');
+    expect(record.rows[0]).toMatchObject({ wins: 1, highest_score: 12 });
+    const board = await asUser(db, GUEST, 'select username, wins, board_rank from public.leaderboard() order by board_rank');
+    expect(board.rows).toHaveLength(2);
+    expect(board.rows[0]).toMatchObject({ wins: 1, board_rank: 1 });
+    expect(JSON.stringify(board.rows)).not.toContain('ada@example.com');
+    await expect(asUser(db, HOST, `update public.profiles set created_at = now() where id = '${HOST}'`)).rejects.toThrow(/permission denied/);
+    const renamed = await asUser(db, HOST, `update public.profiles set username = 'ada_player', display_name = 'Ada' where id = '${HOST}' returning username`);
+    expect(renamed.rows[0]).toMatchObject({ username: 'ada_player' });
+    await expect(db.transaction(async (tx) => {
+      await tx.exec('set local role anon');
+      return tx.query('select * from public.leaderboard()');
+    })).rejects.toThrow(/permission denied/);
+    await db.close();
+  });
 });

@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { Table } from '../features/match/Table';
 import { disconnectedGate, loadOnlineGate, type OnlineGate } from '../features/online/connect';
 import { OnlineExperience } from '../features/online/OnlineExperience';
+import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { useThemeStore } from '../stores/theme';
 import { useReducedMotionAttribute } from './use-reduced-motion';
 
@@ -11,7 +12,7 @@ export function App() {
   const theme = useThemeStore((state) => state.theme);
   const toggleTheme = useThemeStore((state) => state.toggleTheme);
   const [announcement, setAnnouncement] = useState('');
-  const [screen, setScreen] = useState<'board' | 'online'>('board');
+  const [screen, setScreen] = useState<'board' | 'online' | 'profile'>('board');
   const [gate, setGate] = useState<OnlineGate>(disconnectedGate);
   useReducedMotionAttribute();
 
@@ -33,8 +34,8 @@ export function App() {
 
   return (
     <div className="app bg-paper font-sans text-ink">
-      <a className="skip-link" href={screen === 'board' ? '#board' : '#online'}>
-        Skip to {screen === 'board' ? 'board' : 'online'}
+      <a className="skip-link" href={`#${screen}`}>
+        Skip to {screen}
       </a>
       <header className="header border-b border-line bg-paper text-ink">
         <h1 className="wordmark font-display">Word Arena</h1>
@@ -61,6 +62,17 @@ export function App() {
           >
             Online
           </a>
+          <a
+            className="nav-link text-muted aria-[current=page]:text-ink"
+            href="#profile"
+            aria-current={screen === 'profile' ? 'page' : undefined}
+            onClick={(event) => {
+              event.preventDefault();
+              setScreen('profile');
+            }}
+          >
+            Profile
+          </a>
         </nav>
         <div className="header-tools">
           <Button className="icon-button" aria-label={themeLabel} onClick={onToggleTheme}>
@@ -72,15 +84,15 @@ export function App() {
           </Button>
         </div>
       </header>
-      <main id={screen === 'board' ? 'board' : 'online'} className="table bg-felt" tabIndex={-1} aria-label={screen === 'board' ? 'Board' : 'Online'}>
+      <main id={screen} className="table bg-felt" tabIndex={-1} aria-label={screen === 'board' ? 'Board' : screen === 'online' ? 'Online' : 'Profile'}>
         {screen === 'board' ? (
           <>
             <h2 className="sr-only">Local match</h2>
             <Table />
           </>
-        ) : (
-          <OnlineExperience auth={gate.auth} roomsFor={gate.roomsFor} />
-        )}
+        ) : null}
+        {screen === 'online' ? <OnlineExperience auth={gate.auth} roomsFor={gate.roomsFor} /> : null}
+        {screen === 'profile' ? <ProfileScreen auth={gate.auth} profilesFor={gate.profilesFor} /> : null}
       </main>
       <p className="sr-only" aria-live="polite">
         {announcement}

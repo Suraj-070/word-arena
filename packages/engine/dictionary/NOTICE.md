@@ -1,0 +1,83 @@
+# Word Arena dictionary notices
+
+Generated word lists from the English Speller Database (ESDB, previously SCOWL), release rel-2026.02.25, commit `7e99edab8e32f9f9ea2b15f249ca8d4d67237410`.
+
+Each preset is size 60 and variant level 1. The ESDB tool was run with `--deaccent`, `--categories=` (special categories removed), `--wo-poses=abbr` (abbreviations removed), `--wo-usage-notes=offensive-1,offensive-2,vulgar-1`, `--apostrophe false`, and `--dot false`. Presets, kept as separate sets: Australian `D` (default), British `-ise` `B`, Oxford `-ize` `Z`, American `A`, and Canadian `C`. A word that is legal in more than one preset is stored once and marked for each of those presets. Lookup never treats the union as legal for every dialect.
+
+This file does not clear the licensing review in the Phase 0 architecture, section 6.5. Oxford `-ize` (`Z`) and Canadian (`C`) are not licence-cleared. Do not describe this notice as that clearance.
+
+The Atkinson notice is required on every copy. The Titze notice is required because preset `D` uses spelling code `D`. The WordNet 1.6 extract is included as a precaution. The ESDB copyright says that extract might apply when what is distributed is not a speller dictionary or a generated word list. This artifact is a generated word list. In this release, rows tagged `[ukacd]` are size 85 only. This extract is size 60, so the UKACD verbatim-document condition is not attached, and that document is not copied here.
+
+## Atkinson
+
+Copyright 2000-2026 by Kevin Atkinson
+
+Permission to use, copy, modify, distribute, and sell any part of SCOWLv2, or
+word lists created from it, is hereby granted without fee, provided that the
+above copyright notice appears in all copies and that both the above
+copyright notice and this notice appear in supporting documentation.  Kevin
+Atkinson makes no representations about the suitability of this database for
+any purpose.  It is provided "as is" without express or implied warranty.
+
+SCOWL is derived from many sources, most of which are in the Public Domain.
+Data from the Corpus of Contemporary American English (COCA) was also used.
+
+All data from COCA comes from 3-gram data that is not freely available;
+however, the usage is within the rights given by the NDA that was signed when
+purchasing the data.  More information on COCA is available at
+https://www.english-corpora.org/coca/.
+
+The primary source of words for SCOWL comes from 12dicts and ENABLE2K.  Both
+are in the Public Domain, but Alan Beale <biljir@pobox.com> deserves special
+credit as he is the author of 12dicts and a major contributor to ENABLE2K.  In
+addition, he gave me an incredible amount of feedback and created a number of
+special lists in order to help improve the overall quality of SCOWL.
+
+## Titze
+
+The initial information for Australian English comes from Benjamin Titze:
+
+  Copyright 2016 by Benjamin Titze
+
+  Permission to use, copy, modify, distribute and sell this array, the
+  associated software, and its documentation for any purpose is hereby
+  granted without fee, provided that the above copyright notice appears
+  in all copies and that both that copyright notice and this permission
+  notice appear in supporting documentation. Benjamin Titze makes no
+  representations about the suitability of this array for any
+  purpose. It is provided "as is" without express or implied warranty.
+
+## WordNet
+
+WordNet was used to help with the initial POS assignment:
+
+  This software and database is being provided to you, the LICENSEE,
+  by Princeton University under the following license.  By obtaining,
+  using and/or copying this software and database, you agree that you
+  have read, understood, and will comply with these terms and
+  conditions.:
+
+  Permission to use, copy, modify and distribute this software and
+  database and its documentation for any purpose and without fee or
+  royalty is hereby granted, provided that you agree to comply with
+  the following copyright notice and statements, including the
+  disclaimer, and that the same appear on ALL copies of the software,
+  database and documentation, including modifications that you make
+  for internal use or for distribution.
+
+  WordNet 1.6 Copyright 1997 by Princeton University.  All rights
+  reserved.
+
+  THIS SOFTWARE AND DATABASE IS PROVIDED "AS IS" AND PRINCETON
+  UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+  IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PRINCETON
+  UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES OF MERCHANT-
+  ABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF THE
+  LICENSED SOFTWARE, DATABASE OR DOCUMENTATION WILL NOT INFRINGE ANY
+  THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS.
+
+  The name of Princeton University or Princeton may not be used in
+  advertising or publicity pertaining to distribution of the software
+  and/or database.  Title to copyright in this software, database and
+  any associated documentation shall at all times remain with
+  Princeton University and LICENSEE agrees to preserve same.

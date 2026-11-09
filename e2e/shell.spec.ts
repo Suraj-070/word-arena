@@ -267,11 +267,12 @@ test('online play stays unsigned-in until a project is connected', async ({ page
   }
 });
 
-test('a local match can place a tile and cannot submit without a dictionary', async ({ page }) => {
+test('a local match uses the shared dictionary and the server-side rules reject a short word', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openApp(page);
 
-  await expect(page.getByText(/No dictionary is configured/)).toBeVisible();
+  await expect(page.locator('.match-status')).toContainText('Australian English');
+  await expect(page.getByText(/Place tiles, then submit/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Submit' })).toBeDisabled();
   await expect(page.locator('.match-status')).toContainText('Player 1 to move');
 
@@ -280,11 +281,30 @@ test('a local match can place a tile and cannot submit without a dictionary', as
   await expect(tile).toHaveAttribute('data-selected', 'true');
   await page.getByRole('gridcell', { name: 'Empty square, row 8, column 8' }).click();
   await expect(page.getByRole('gridcell', { name: /row 8, column 8, not submitted/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Submit' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Submit' }).click();
+  await expect(page.locator('.match-status')).toContainText('Player 1 to move');
   await page.getByRole('button', { name: 'Clear' }).click();
   await expect(page.getByRole('gridcell', { name: 'Empty square, row 8, column 8' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Pass' }).click();
   await expect(page.locator('.match-status')).toContainText('Player 2 to move');
+});
+
+test('profile screen fits desktop and mobile', async ({ page }) => {
+  await openApp(page);
+  await page.getByRole('link', { name: 'Profile' }).click();
+  await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
+  await expect(page.getByText(/Sign in from Online/)).toBeVisible();
+
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow, `${viewport.width}px`).toBeLessThanOrEqual(1);
+    const card = await box(page.locator('.profile-card'));
+    expect(card.x).toBeGreaterThanOrEqual(-1);
+    expect(card.x + card.width).toBeLessThanOrEqual(viewport.width + 1);
+  }
 });
 
 test('motion tokens are used when motion is allowed', async ({ page }) => {

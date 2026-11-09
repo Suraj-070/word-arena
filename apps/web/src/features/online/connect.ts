@@ -1,3 +1,4 @@
+import { EMPTY_STATS, type ProfilePort } from '../profile/types';
 import { NOT_CONNECTED, readOnlineConfig } from './config';
 import type { AuthPort, RoomPort, SessionUser } from './ports';
 
@@ -26,13 +27,24 @@ export function disconnectedRooms(_user: SessionUser): RoomPort {
   };
 }
 
+export function disconnectedProfiles(_user: SessionUser): ProfilePort {
+  return {
+    readProfile: async () => ({ profile: null, error: NOT_CONNECTED }),
+    saveProfile: async () => ({ profile: null, error: NOT_CONNECTED }),
+    readStats: async () => ({ stats: EMPTY_STATS, error: NOT_CONNECTED }),
+    readHistory: async () => ({ history: [], error: NOT_CONNECTED }),
+    readLeaderboard: async () => ({ rows: [], error: NOT_CONNECTED }),
+  };
+}
+
 export type OnlineGate = {
   readonly auth: AuthPort;
   readonly roomsFor: (user: SessionUser) => RoomPort;
+  readonly profilesFor: (user: SessionUser) => ProfilePort;
 };
 
 export function disconnectedGate(): OnlineGate {
-  return { auth: disconnectedAuth, roomsFor: disconnectedRooms };
+  return { auth: disconnectedAuth, roomsFor: disconnectedRooms, profilesFor: disconnectedProfiles };
 }
 
 /** Loads the Supabase client only when a publishable project config is present. */

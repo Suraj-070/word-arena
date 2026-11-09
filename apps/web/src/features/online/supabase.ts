@@ -1,9 +1,14 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { MatchCommand, MatchNotice, MatchResult } from './session-types';
 import type { OnlineConfig } from './config';
+import { supabaseProfiles } from '../profile/supabase-profile';
 import type { AuthPort, RoomPort, SessionUser } from './ports';
 
-export function connectSupabase(config: OnlineConfig): { auth: AuthPort; roomsFor: (user: SessionUser) => RoomPort } {
+export function connectSupabase(config: OnlineConfig): {
+  auth: AuthPort;
+  roomsFor: (user: SessionUser) => RoomPort;
+  profilesFor: (user: SessionUser) => ReturnType<typeof supabaseProfiles>;
+} {
   const client = createClient(config.url, config.publishableKey, {
     auth: {
       persistSession: true,
@@ -14,6 +19,7 @@ export function connectSupabase(config: OnlineConfig): { auth: AuthPort; roomsFo
   return {
     auth: supabaseAuth(client),
     roomsFor: (user) => supabaseRooms(client, user),
+    profilesFor: (user) => supabaseProfiles(client, user),
   };
 }
 
@@ -54,9 +60,10 @@ export function supabaseRooms(client: SupabaseClient, _user: SessionUser): RoomP
     createRoom: () => invoke(client, { op: 'create-room' }),
     joinRoom: (code) => invoke(client, { op: 'join-room', code }),
     setReady: (roomId) => invoke(client, { op: 'set-ready', roomId }),
-    startMatch: (roomId, scoringMode) => invoke(client, {
+    startMatch: (roomId, dictionaryVersionId, scoringMode) => invoke(client, {
       op: 'start-match',
       roomId,
+      ...(dictionaryVersionId ? { dictionaryVersionId } : {}),
       ...(scoringMode ? { scoringMode } : {}),
     }),
     cancelRoom: (roomId) => invoke(client, { op: 'cancel-room', roomId }),

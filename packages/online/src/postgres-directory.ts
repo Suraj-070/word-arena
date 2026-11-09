@@ -13,6 +13,7 @@ import {
   canonicalCommand,
   cryptoRandom,
   decideAct,
+  dictionaryForMatch,
   playerView,
   rulesForMatch,
   type DirectoryOptions,
@@ -20,6 +21,7 @@ import {
   type MatchDirectory,
   type StoredReceipt,
 } from './directory';
+import { seatResults } from './results';
 import type { Sql, SqlDatabase } from './sql';
 import type { MatchCommand, MatchResult, MemberView, OnlineFailure, RoomResult, RoomStatus, RoomView } from './types';
 
@@ -57,6 +59,7 @@ export class PostgresDirectory implements MatchDirectory {
   private readonly random: RandomSource;
   private readonly ids: () => string;
   private readonly dictionary: DictionaryProvider | null;
+  private readonly dictionaries: ReadonlyMap<string, DictionaryProvider> | null;
   private readonly rules: Rules;
   private readonly ttlMs: number;
 
@@ -68,8 +71,13 @@ export class PostgresDirectory implements MatchDirectory {
     this.random = options.random ?? cryptoRandom;
     this.ids = options.ids ?? (() => globalThis.crypto.randomUUID());
     this.dictionary = options.dictionary === undefined ? null : options.dictionary;
+    this.dictionaries = options.dictionaries ?? null;
     this.rules = options.rules ?? arenaStandardRules();
     this.ttlMs = options.ttlMs ?? ROOM_TTL_MS;
+  }
+
+  private available(state: MatchState): boolean {
+    return dictionaryForMatch(this.dictionaries, this.dictionary, state) !== null;
   }
 
   createRoom(userId: string, displayName: string): Promise<RoomResult> {
@@ -153,7 +161,7 @@ export class PostgresDirectory implements MatchDirectory {
     });
   }
 
-  startMatch(userId: string, roomId: string, scoringMode?: TileUpgrade): Promise<RoomResult> {
+  startMatch(userId: string, roomId: string, dictionaryVersionId?: string, scoringMode?: TileUpgrade): Promise<RoomResult> {
     return this.db.transaction(async (tx) => {
       const room = await this.lockRoom(tx, 'id = $1', [roomId]);
       const members = room ? await this.memberRows(tx, room.id) : [];
@@ -166,7 +174,7 @@ export class PostgresDirectory implements MatchDirectory {
       const host = seated[0];
       const guest = seated[1];
       if (!host || !guest) return fail('not-ready', 'Both players need to be ready before the match starts.');
-      const rules = rulesForMatch(this.rules, scoringMode);
+      const rules = rulesForMatch(this.rules, dictionaryVersionId, scoringMode);
       if ('ok' in rules) return rules;
       const state = createMatch({ rules, names: [host.display_name, guest.display_name], random: this.random });
       const id = this.ids();
@@ -275,8 +283,39 @@ export class PostgresDirectory implements MatchDirectory {
     );
     if (decided.finished) {
       await tx.query(`update public.rooms set status = 'finished' where id = $1 and status = 'playing'`, [live.roomId]);
+      await this.recordResults(tx, matchId, decided.match.state, String(row.user_0), String(row.user_1));
     }
     return decided.result;
+  }
+
+  /** Copies the engine's finished scores. The action body has no score field. */
+  private async recordResults(tx: Sql, matchId: string, state: MatchState, user0: string, user1: string): Promise<void> {
+    const seats = seatResults(state);
+    if (!seats) return;
+    const [left, right] = seats;
+    await tx.query(
+      `insert into public.match_results (
+         match_id, user_id, opponent_id, seat, score, opponent_score, result, end_kind, finished_at
+       ) values
+         ($1, $2, $3, $4, $5, $6, $7, $8, $9),
+         ($1, $3, $2, $10, $11, $12, $13, $8, $9)
+       on conflict (match_id, user_id) do nothing`,
+      [
+        matchId,
+        user0,
+        user1,
+        left.seat,
+        left.score,
+        left.opponentScore,
+        left.result,
+        left.endKind,
+        this.now(),
+        right.seat,
+        right.score,
+        right.opponentScore,
+        right.result,
+      ],
+    );
   }
 
   private async insertMatch(tx: Sql, id: string, roomId: string, state: MatchState, hostId: string, guestId: string): Promise<void> {
@@ -308,7 +347,7 @@ export class PostgresDirectory implements MatchDirectory {
         endKind,
         state.end,
         state.last ? publicLast(state) : null,
-        this.dictionary !== null,
+        this.available(state),
         state.rules.exchangeAllowed,
         state.rules.boardSize,
       ],
@@ -367,7 +406,7 @@ export class PostgresDirectory implements MatchDirectory {
         state.end?.kind ?? null,
         state.end,
         state.last ? publicLast(state) : null,
-        this.dictionary !== null,
+        this.available(state),
         expectedVersion,
       ],
     );
@@ -420,7 +459,7 @@ export class PostgresDirectory implements MatchDirectory {
       roomId: String(row.room_id),
       state,
       users: [seat0, seat1],
-      dictionary: this.dictionary ?? null,
+      dictionary: dictionaryForMatch(this.dictionaries, this.dictionary, state),
     };
   }
 

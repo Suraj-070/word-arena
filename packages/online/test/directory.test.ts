@@ -256,7 +256,7 @@ describe('authoritative match', () => {
     await table.joinRoom('guest', host.room.code, 'Bea');
     await table.setReady('host', host.room.id);
     await table.setReady('guest', host.room.id);
-    const startedRoom = await table.startMatch('host', host.room.id, 'wild');
+    const startedRoom = await table.startMatch('host', host.room.id, undefined, 'wild');
     if (!startedRoom.ok || !startedRoom.room.matchId) throw new Error('start');
     const matchId = startedRoom.room.matchId;
     const opening = await table.readMatch('host', matchId);

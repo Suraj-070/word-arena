@@ -93,3 +93,12 @@ export function rulesWithScoringMode(base: Rules, mode: TileUpgrade): Rules {
   }
   return result.rules;
 }
+
+/** A copy of `base` that declares one shipped preset. The original rules are unchanged. */
+export function rulesWithDictionary(base: Rules, dictionaryVersionId: string): Rules {
+  const result = validateRules({ ...base, dictionaryVersionId });
+  if (!result.ok) {
+    throw new Error(result.errors.map((issue) => issue.message).join(' '));
+  }
+  return result.rules;
+}

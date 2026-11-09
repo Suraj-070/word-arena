@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties, FormEvent } from 'react';
 import { followMatch } from '@word-arena/online/client';
-import { readCell, type Letter } from '@word-arena/engine';
+import { DICTIONARY_NOTICE, DICTIONARY_PRESETS, dictionaryPreset, readCell, type Letter } from '@word-arena/engine';
 import { bonusMarks, scoringCopy } from '../match/board-marks';
 import { ScoringBadge } from '../match/ScoringBadge';
 import { Count, PlayFeedback, useFreshPlacements, type SquareEffect } from '../match/celebration';
+import { readDictionaryPreference, writeDictionaryPreference } from '../match/dictionary-preference';
 import { BlankLetterDialog } from '../board/BlankLetterDialog';
 import { Board, type BoardFace } from '../board/Board';
 import { BoardScroll } from '../board/BoardScroll';
@@ -81,7 +82,7 @@ function AuthForm({ auth, onUser }: { auth: AuthPort; onUser: (user: SessionUser
         <h2 className="online-title">{mode === 'register' ? 'Create an account' : 'Sign in'}</h2>
         <p className="online-copy">
           {auth.configured
-            ? 'Private rooms use your Supabase account. Scored plays stay unavailable until an approved dictionary is configured.'
+            ? 'Private rooms use your Supabase account. The host’s dictionary is copied into the match at the start, and the server scores the play.'
             : 'Online play is not connected to a Supabase project. Signing in cannot start a match.'}
         </p>
         <label className="online-field">
@@ -197,7 +198,7 @@ function Lobby({ user, port, onSignOut }: { user: SessionUser; port: RoomPort; o
     <div className="online-wrap">
       <section className="online-card" aria-label="Online lobby">
         <h2 className="online-title">{room ? 'Private room' : 'Online'}</h2>
-        <p className="online-copy">Signed in as {user.email}. Scored plays stay unavailable until an approved dictionary is configured.</p>
+        <p className="online-copy">Signed in as {user.email}. Both players share the dictionary copied in when the host starts the match. The server checks the words and records the score.</p>
         {link === 'offline' ? <p className="online-error" role="status">You are offline. The match is unchanged.</p> : null}
         {link === 'connecting' ? <p role="status">Reconnecting.</p> : null}
         {error ? <p className="online-error" role="alert">{error}</p> : null}
@@ -234,6 +235,34 @@ function Lobby({ user, port, onSignOut }: { user: SessionUser; port: RoomPort; o
   );
 }
 
+function DictionaryChoice() {
+  const [versionId, setVersionId] = useState(readDictionaryPreference);
+  return (
+    <div className="dictionary-choice">
+      <label>
+        Next match
+        <select
+          aria-label="Dictionary for the next match"
+          value={versionId}
+          onChange={(event) => {
+            writeDictionaryPreference(event.target.value);
+            setVersionId(event.target.value);
+          }}
+        >
+          {DICTIONARY_PRESETS.map((preset) => (
+            <option key={preset.id} value={preset.id}>{preset.label}</option>
+          ))}
+        </select>
+      </label>
+      <p>Saved for the next match you start. A match that has already started keeps its preset.</p>
+      <details className="match-notices">
+        <summary>Dictionary notices</summary>
+        <pre>{DICTIONARY_NOTICE}</pre>
+      </details>
+    </div>
+  );
+}
+
 function WaitingRoom({ room, port, onChange }: { room: RoomView; port: RoomPort; onChange: (room: RoomView) => void }) {
   const [scoringMode, setScoringMode] = useState<'classic' | 'wild'>('classic');
   const opponent = room.members.find((member) => member.seat !== room.yourSeat);
@@ -257,6 +286,7 @@ function WaitingRoom({ room, port, onChange }: { room: RoomView; port: RoomPort;
       <button className="online-button" type="button" onClick={() => void run(() => port.setReady(room.id))} disabled={room.status === 'cancelled'}>
         Ready
       </button>
+      <DictionaryChoice />
       {room.youAreHost ? (
         <>
           <label className="dictionary-choice">
@@ -273,7 +303,7 @@ function WaitingRoom({ room, port, onChange }: { room: RoomView; port: RoomPort;
             type="button"
             data-primary="true"
             disabled={room.status !== 'ready'}
-            onClick={() => void run(() => port.startMatch(room.id, scoringMode))}
+            onClick={() => void run(() => port.startMatch(room.id, readDictionaryPreference(), scoringMode))}
           >
             Start match
           </button>
@@ -450,6 +480,7 @@ export function OnlineTable({
             <span className="player-turn" data-active={!finished && current.turn === 1 ? 'true' : 'false'}>{current.names[1]} <Count value={current.scores[1]} /></span>
           </span>
           <span>{link === 'offline' ? 'Reconnecting' : link === 'connecting' ? 'Reconnecting' : 'Connected'}</span>
+          <span>{dictionaryPreset(current.dictionaryVersionId)?.label ?? 'Dictionary'}</span>
         </p>
         <p className="match-message" aria-live="polite">
           {notice

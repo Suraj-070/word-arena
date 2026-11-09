@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { arenaStandardRules } from '@word-arena/engine';
+import { DICTIONARY_PRESETS, arenaStandardRules } from '@word-arena/engine';
 import { resetTable, useTableStore } from '../features/match/table-store';
 import { THEME_STORAGE_KEY, useThemeStore } from '../stores/theme';
 import { App } from './App';
@@ -36,7 +36,9 @@ describe('App shell', () => {
     expect(screen.getAllByRole('gridcell')).toHaveLength(rules.boardSize ** 2);
     expect(screen.getByRole('group', { name: /Player 1 rack, 7 tiles/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Board' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByText(/No dictionary is configured/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Profile' })).toBeInTheDocument();
+    expect(screen.getAllByText('Australian English').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Place tiles, then submit/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
     expect(screen.queryByText(/L2|L3|W2|W3/)).not.toBeInTheDocument();
   });
@@ -54,6 +56,20 @@ describe('App shell', () => {
     await user.click(screen.getByRole('button', { name: 'New match' }));
     expect(useTableStore.getState().match.rules.scoring.tileUpgrade).toBe('wild');
     expect(screen.getAllByText('L2').length).toBeGreaterThan(0);
+  });
+
+  it('keeps the active match when the dictionary preference changes', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const before = useTableStore.getState().match.rules.dictionaryVersionId;
+    const american = DICTIONARY_PRESETS.find((preset) => preset.spelling === 'A');
+    if (!american) throw new Error('American preset missing');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Dictionary for the next match' }), american.id);
+    expect(useTableStore.getState().match.rules.dictionaryVersionId).toBe(before);
+    expect(useTableStore.getState().preferenceId).toBe(american.id);
+    await user.click(screen.getByRole('button', { name: 'New match' }));
+    expect(useTableStore.getState().match.rules.dictionaryVersionId).toBe(american.id);
+    expect(useTableStore.getState().dictionary?.versionId).toBe(american.id);
   });
 
   it('marks reduced motion on the document', () => {
